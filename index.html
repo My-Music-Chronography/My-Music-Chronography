@@ -128,22 +128,31 @@
 
   /* ---- the main window: one card per artist; tap it and their albums drop down, oldest first ---- */
   .ac{background:var(--panel); border:3px solid #000; border-radius:8px; overflow:hidden;}
-  .ac-head{display:flex; align-items:stretch; height:70px; cursor:pointer; user-select:none;}
+  .ac-head{display:flex; align-items:stretch; height:39px; cursor:pointer; user-select:none;}   /* 45px with the card's border */
   .ac-head:active{filter:brightness(.96);}
-  .ac-head .art{width:64px; --sz:64px; border-right:3px solid #000;}
-  .ac-head .main{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:0 10px; line-height:1.15;}
-  .ac-head .t{font-size:1rem;}
-  .ac-head .cnt{flex:none; width:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; border-left:3px solid #000; background:var(--unread);
-    font:700 1.05rem/1 Georgia,serif; transition:background .2s, color .2s;}
-  .ac-head .cnt svg{width:12px; height:12px; display:block; transition:transform .25s;}
+  .ac-head .art{width:42px; --sz:42px; border-right:3px solid #000;}
+  .ac-head .art.ph svg{display:none;}
+  .ac-head .main{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:1px; padding:0 10px; line-height:1.15;}
+  .ac-head .t{font-size:.9rem;}
+  .ac-head .m{font-size:.52rem;}
+  .ac-head .cnt{flex:none; width:52px; display:flex; flex-direction:row; align-items:center; justify-content:center; gap:6px; border-left:3px solid #000; background:var(--unread);
+    font:700 .9rem/1 Georgia,serif; transition:background .2s, color .2s;}
+  .ac-head .cnt svg{width:10px; height:10px; display:block; transition:transform .25s;}
   .ac.open .ac-head .cnt{background:var(--ink); color:#fff;}
   .ac.open .ac-head .cnt svg{transform:rotate(180deg);} .ac.open .ac-head .cnt polygon{fill:#fff; stroke:#fff;}
   .ac-drop{display:grid; grid-template-rows:0fr; transition:grid-template-rows .28s ease;}
   .ac.open .ac-drop{grid-template-rows:1fr;}
   .ac-in{min-height:0; overflow:hidden;}
   .ac-list{display:flex; flex-direction:column; gap:4px; padding:4px; border-top:3px solid #000; background:var(--unread);}
-  .ac-list .alb{height:56px;} .ac-list .alb .art{width:56px; --sz:56px;}
-  .ac-page{height:30px; margin:0; border:3px solid #000; border-radius:6px; background:#fff; font:700 .62rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--ink);}
+  /* a dropdown album: one 28px line — cover, title, year · length, type */
+  .alb.mini{height:28px; border-radius:6px;} .alb.mini::after{border-radius:6px;}
+  .alb.mini .art{width:25px; --sz:25px; border-right-width:3px;} .alb.mini .art.ph svg, .ac-head .art.ph svg{display:none;} .alb.mini .art.ph, .ac-head .art.ph{gap:0;} .alb.mini .art.ph span{font-size:.62rem;}
+  .alb.mini .main{flex-direction:row; align-items:center; gap:8px; padding:0 8px;}
+  .alb.mini .t{flex:1; min-width:0; font-size:.78rem;}
+  .alb.mini .m, .alb.mini .hit{flex:none; max-width:45%; font-size:.5rem;}
+  .alb.mini .hit{font-size:.6rem;}
+  .alb.mini .ty{width:44px; border-left-width:3px;} .alb.mini .ty span{writing-mode:horizontal-tb; transform:none; font-size:.5rem; letter-spacing:.8px;}
+  .ac-page{height:28px; margin:0; border:3px solid #000; border-radius:6px; background:#fff; font:700 .62rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--ink);}
   .ac-page:active{background:var(--bg);}
   @media (prefers-reduced-motion:reduce){ .ac-drop{transition:none;} }
   /* the artist window: their photo, and where it came from */
@@ -502,6 +511,10 @@ function renderSf(){
   $('#sf-dir').classList.toggle('up',u.dir===(list.find(s=>s.k===u.sort)||list[0]).def);
   $('#sfq').placeholder='Artists, titles, genres, songs';
 }
+function albMini(a,hit){
+  const len=total(a),meta=[a.year,len?fmtLen(len):''].filter(Boolean).join(' · ');
+  return `<div class="alb mini" data-id="${a.id}">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div>${hit?`<div class="hit">♪ ${esc(hit)}</div>`:`<div class="m">${esc(meta)}</div>`}</div><div class="ty" style="--tc:${TYPE_C[a.type]}"><span>${esc(a.type)}</span></div></div>`;
+}
 function albRow(a,hit,own){   // own: shown under its artist already, so the artist line is left off
   const len=total(a),n=(a.tracks||[]).length;
   const meta=[a.year,a.genre,n?`${n} track${n===1?'':'s'}`:'',len?fmtLen(len):''].filter(Boolean).join(' · ');
@@ -537,7 +550,7 @@ function renderArtists(){
   for(const x of list){
     if(u.sort==='name'){const L=(sortKey(x.name)[0]||'#').toUpperCase(),g=/[A-Z]/.test(L)?L:'#';if(g!==last){h+=`<div class="list-divider"><span>${g}</span></div>`;last=g}}
     const len=x.albums.reduce((t,a)=>t+total(a),0),k=akey(x.name),isOpen=open.has(k)||(q&&!x.nameHit);
-    const rows=x.shown.sort((p,r)=>byYear(p.a,r.a)).map(y=>albRow(y.a,y.hit,true)).join('');
+    const rows=x.shown.sort((p,r)=>byYear(p.a,r.a)).map(y=>albMini(y.a,y.hit)).join('');
     h+=`<div class="ac ${isOpen?'open':''}" data-k="${esc(k)}" data-artist="${esc(x.name)}"><div class="ac-head">${artistArt(x.name)}<div class="main"><div class="t">${esc(x.name)}</div><div class="m">${esc(typeCounts(x.albums))}${len?' · '+fmtLong(len):''}</div></div><div class="cnt">${x.shown.length}${TRI_DN}</div></div>
       <div class="ac-drop"><div class="ac-in"><div class="ac-list">${rows}<button type="button" class="ac-page">Artist Page</button></div></div></div></div>`;
   }
@@ -668,7 +681,7 @@ $('#ar-file').addEventListener('change',async e=>{const f=e.target.files[0];e.ta
 $('#app').addEventListener('click',e=>{
   const r=e.target.closest('.alb');if(r){openAlbum(r.dataset.id);return}
   const ac=e.target.closest('.ac');if(!ac)return;
-  if(e.target.closest('.ac-page')||e.target.closest('.ac-head .art')){openArtist(ac.dataset.artist);return}
+  if(e.target.closest('.ac-page')){openArtist(ac.dataset.artist);return}
   if(e.target.closest('.ac-head')){const k=ac.dataset.k,o=new Set(S.ui.open||[]);
     if(ac.classList.toggle('open'))o.add(k);else o.delete(k);S.ui.open=[...o];save()}
 });
