@@ -287,6 +287,18 @@
   .tr-row .tx{flex:1; min-width:0; display:flex; align-items:center; padding:4px 10px; font:600 .84rem/1.2 Georgia,serif;}
   .tr-row .ln{flex:none; display:flex; align-items:center; padding:0 10px; font:.74rem Arial,sans-serif; color:var(--muted); font-variant-numeric:tabular-nums;}
   .tr-row.hl .tx{color:#7a2f2b;}
+  /* 30-second previews: play button on each track; the row fills as it plays */
+  .tr-row{position:relative; cursor:pointer;}
+  .tr-row::before{content:''; position:absolute; left:38px; top:0; bottom:0; width:calc((100% - 38px - 41px) * var(--p,0)); background:rgba(91,102,51,.16); pointer-events:none;}
+  .tr-row .tx, .tr-row .ln{position:relative;}
+  .tr-row .pb{flex:none; position:relative; width:41px; display:grid; place-items:center; border-left:3px solid #000; background:var(--unread);}
+  .tr-row .pb svg{width:14px; height:14px; display:block;}
+  .tr-row .pb .ps{display:none;}
+  .tr-row.playing .pb{background:#5b6633;} .tr-row.playing .pb svg{fill:#fff;}
+  .tr-row.playing .pb .pl{display:none;} .tr-row.playing .pb .ps{display:block;}
+  .tr-row.loading .pb svg{display:none;} .tr-row.loading .pb::after{content:''; width:14px; height:14px; border:3px solid #fff; border-top-color:var(--ink); border-radius:50%; animation:sp 1s linear infinite;}
+  .tr-row.none .pb{background:var(--hdr-cell);} .tr-row.none .pb svg{opacity:.3;}
+  .tr-row.playing .tx{color:#3f4a1f;}
 
   /* artist list picker (from Add / Edit) */
   .tg-new{display:flex; gap:4px; height:48px;}
@@ -656,7 +668,7 @@ const stack=[];
 function openPage(id){const p=$(id);p.classList.add('open');p.setAttribute('aria-hidden','false');p.scrollTop=0;stack.push(id);history.pushState({p:id},'')}
 let skipPop=0;
 function closePage(id,fromPop){const p=$(id);p.classList.remove('open');p.setAttribute('aria-hidden','true');const i=stack.lastIndexOf(id);if(i>-1)stack.splice(i,1);if(!fromPop){skipPop++;history.back()}}
-addEventListener('popstate',()=>{if(skipPop){skipPop--;return}const id=stack[stack.length-1];if(id){if(id==='#ed-page'&&edDirty()&&!confirm('Discard this album?')){history.pushState({p:id},'');return}closePage(id,true)}});
+addEventListener('popstate',()=>{if(skipPop){skipPop--;return}const id=stack[stack.length-1];if(id==='#al-page')stopPreview();if(id){if(id==='#ed-page'&&edDirty()&&!confirm('Discard this album?')){history.pushState({p:id},'');return}closePage(id,true)}});
 
 /* ---- sort page ---- */
 const TRI='<svg viewBox="0 0 40 40"><polygon points="10.4,11 29.6,11 20,27.6" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/></svg>';
@@ -681,24 +693,27 @@ $('#so-back').onclick=()=>closePage('#so-page');
 
 /* ---- album window ---- */
 let alId=null;
-function openAlbum(id){alId=id;renderAlbum();openPage('#al-page')}
+function openAlbum(id){if(PV.id&&PV.id!==id)stopPreview();alId=id;renderAlbum();openPage('#al-page')}
 function renderAlbum(){
   const a=S.albums.find(x=>x.id===alId);if(!a){if(stack.includes('#al-page'))closePage('#al-page');return}
   const c=clothOf((a.title||'')+'|'+(a.artist||'')),len=total(a),tr=a.tracks||[];
   $('#al-title').textContent=a.title||'Album';
   const discs=new Set(tr.map(x=>x.d||1)).size>1;
   let rows='',ld=null,n=0;
-  tr.forEach(x=>{const d=x.d||1;if(discs&&d!==ld){rows+=`<div class="sr-sec">Disc ${d}<span>${tr.filter(y=>(y.d||1)===d).length} tracks</span></div>`;ld=d;n=0}n++;
-    rows+=`<div class="tr-row"><span class="n" style="--c:${c}">${n}</span><span class="tx">${esc(x.t||'Untitled')}</span><span class="ln">${fmtLen(x.len)}</span></div>`});
+  tr.forEach((x,i)=>{const d=x.d||1;if(discs&&d!==ld){rows+=`<div class="sr-sec">Disc ${d}<span>${tr.filter(y=>(y.d||1)===d).length} tracks</span></div>`;ld=d;n=0}n++;
+    const st=PV.id===a.id&&PV.i===i?(PV.loading?'loading':'playing'):'';
+    rows+=`<div class="tr-row ${st} ${PV.none.has(a.id+':'+i)?'none':''}" data-i="${i}"><span class="n" style="--c:${c}">${n}</span><span class="tx">${esc(x.t||'Untitled')}</span><span class="ln">${fmtLen(x.len)}</span><span class="pb" aria-label="Play preview">${PLAY_SVG}</span></div>`});
   $('#al-body').innerHTML=`<div class="show-head">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div><div class="a"><u data-artist="${esc(a.artist||'Unknown Artist')}">${esc(a.artist||'Unknown Artist')}</u></div><div class="m">${esc([a.type,a.year].filter(Boolean).join(' · '))}</div></div></div>
     <div class="stats three"><div><b>${tr.length}</b><small>Tracks</small></div><div><b>${len?fmtLen(len):'—'}</b><small>Length</small></div><div><b>${esc(a.label||'—')}</b><small>Label</small></div></div>
     ${genresOf(a).length?`<div class="gtags">${genresOf(a).map(g=>`<span>${esc(g)}</span>`).join('')}</div>`:''}
     ${tr.length?`<div class="list-divider sm"><span>Tracklist</span></div><div class="sr-list">${!discs?`<div class="sr-sec">${tr.length} tracks<span>${len?fmtLen(len):''}</span></div>`:''}${rows}</div>`:`<div class="empty">No tracks listed. Tap <b>Edit</b> to add them.</div>`}
+    ${tr.length?`<div class="note">Tap a track to hear a 30-second preview from Deezer.</div>`:''}
     <div class="note">Added ${new Date(a.added).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}${a.mbid?` · <a href="https://musicbrainz.org/release-group/${esc(a.mbid)}" target="_blank" rel="noopener">View on MusicBrainz</a>`:''}</div>`;
 }
-$('#al-body').addEventListener('click',e=>{const u=e.target.closest('[data-artist]');if(u)openArtist(u.dataset.artist)});
-$('#al-back').onclick=()=>closePage('#al-page');
-$('#al-edit').onclick=()=>openEditor(alId);
+$('#al-body').addEventListener('click',e=>{const u=e.target.closest('[data-artist]');if(u){openArtist(u.dataset.artist);return}
+  const r=e.target.closest('.tr-row');if(r)togglePreview(+r.dataset.i)});
+$('#al-back').onclick=()=>{stopPreview();closePage('#al-page')};
+$('#al-edit').onclick=()=>{stopPreview();openEditor(alId)};
 
 /* ---- artist window ---- */
 let arName=null,arRen=false;
@@ -1009,6 +1024,74 @@ function autoPhoto(name){
     save();if(e.photo){render();if(stack.includes('#ar-page')&&akey(arName)===k)renderArtist()}
   }).catch(()=>{});
 }
+/* ================= 30-second previews from Deezer ================= */
+// Deezer's preview links expire, so only Deezer's album id is kept; the links are fetched fresh each time the app runs
+const PLAY_SVG='<svg class="pl" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></svg><svg class="ps" viewBox="0 0 24 24"><rect x="5.5" y="4.5" width="4.6" height="15" rx="1"/><rect x="13.9" y="4.5" width="4.6" height="15" rx="1"/></svg>';
+const PV={audio:new Audio(),id:null,i:-1,loading:false,none:new Set(),albums:new Map()};
+PV.audio.preload='auto';
+// titles compared without "(Remastered 2011)", "- Live" and the like
+const trNorm=t=>nameNorm(String(t||'').replace(/\s*[\(\[][^\)\]]*[\)\]]/g,'').replace(/\s+-\s+.*$/,''));
+function dzAlbumTracks(a){
+  if(PV.albums.has(a.id))return PV.albums.get(a.id);
+  const p=(async()=>{
+    let did=a.dzAlbum;
+    if(!did){
+      const r=await jsonp(`https://api.deezer.com/search/album?q=${encodeURIComponent(`artist:"${a.artist}" album:"${a.title}"`)}&limit=15`);
+      const L=r.data||[],an=nameNorm(a.artist),tn=trNorm(a.title);
+      const best=L.find(x=>trNorm(x.title)===tn&&nameNorm(x.artist?.name)===an)||L.find(x=>trNorm(x.title)===tn)||L.find(x=>nameNorm(x.artist?.name)===an&&trNorm(x.title).startsWith(tn));
+      if(!best)return[];
+      did=best.id;a.dzAlbum=did;save();
+    }
+    const t=await jsonp(`https://api.deezer.com/album/${did}/tracks?limit=300`);
+    return (t.data||[]).map(x=>({title:x.title,preview:x.preview}));
+  })();
+  PV.albums.set(a.id,p);p.catch(()=>PV.albums.delete(a.id));return p;
+}
+async function previewFor(a,i){
+  const tr=a.tracks[i],n=trNorm(tr.t);
+  let list=[];try{list=await dzAlbumTracks(a)}catch(_){}
+  let m=list.find(x=>trNorm(x.title)===n)||(n.length>3&&list.find(x=>{const t=trNorm(x.title);return t.startsWith(n)||n.startsWith(t)&&t.length>3}));
+  if(!m&&list.length===a.tracks.length)m=list[i];   // same number of tracks: go by position
+  if(m&&m.preview)return m.preview;
+  // not on the album Deezer found: look for the song by itself
+  const r=await jsonp(`https://api.deezer.com/search?q=${encodeURIComponent(`artist:"${a.artist}" track:"${tr.t}"`)}&limit=8`);
+  const L=(r.data||[]).filter(x=>x.preview);
+  const c=L.find(x=>trNorm(x.title)===n&&nameNorm(x.artist?.name)===nameNorm(a.artist))||L.find(x=>trNorm(x.title)===n);
+  return c?c.preview:'';
+}
+function pvRows(){return $$('#al-body .tr-row')}
+function pvPaint(){
+  pvRows().forEach(r=>{const on=PV.id===alId&&PV.i===+r.dataset.i;
+    r.classList.toggle('playing',on&&!PV.loading);r.classList.toggle('loading',on&&PV.loading);if(!on)r.style.removeProperty('--p')});
+}
+function stopPreview(){PV.audio.pause();PV.id=null;PV.i=-1;PV.loading=false;pvPaint()}
+async function togglePreview(i){
+  const a=S.albums.find(x=>x.id===alId);if(!a)return;
+  if(PV.id===a.id&&PV.i===i){if(PV.loading)return;if(PV.audio.paused)PV.audio.play().catch(()=>{});else{PV.audio.pause();stopPreview()}return}
+  playPreview(a,i);
+}
+async function playPreview(a,i){
+  PV.audio.pause();PV.id=a.id;PV.i=i;PV.loading=true;pvPaint();
+  let url='';
+  try{url=await previewFor(a,i)}catch(_){ if(PV.id===a.id&&PV.i===i){PV.loading=false;stopPreview();toast(navigator.onLine?'Couldn’t reach Deezer. Try again in a moment.':'Previews need a connection.')}return}
+  if(PV.id!==a.id||PV.i!==i)return;   // another track was tapped meanwhile
+  if(!url){PV.none.add(a.id+':'+i);const r=pvRows().find(r=>+r.dataset.i===i);if(r)r.classList.add('none');
+    toast('No preview on Deezer for this track');PV.loading=false;nextPreview();return}
+  PV.audio.src=url;
+  try{await PV.audio.play();PV.loading=false;pvPaint()}
+  catch(_){PV.loading=false;stopPreview();toast('Couldn’t play the preview')}
+}
+// at the end of a preview, the next track plays; it stops after the last one
+function nextPreview(){
+  const a=S.albums.find(x=>x.id===PV.id);if(!a){stopPreview();return}
+  let j=PV.i+1;while(j<a.tracks.length&&PV.none.has(a.id+':'+j))j++;
+  if(j<a.tracks.length&&alId===a.id&&stack.includes('#al-page'))playPreview(a,j);else stopPreview();
+}
+PV.audio.addEventListener('timeupdate',()=>{if(PV.id!==alId)return;const r=pvRows().find(r=>+r.dataset.i===PV.i);
+  if(r&&PV.audio.duration)r.style.setProperty('--p',Math.min(1,PV.audio.currentTime/PV.audio.duration))});
+PV.audio.addEventListener('ended',nextPreview);
+PV.audio.addEventListener('error',()=>{if(PV.id&&!PV.loading){PV.albums.delete(PV.id);stopPreview();toast('That preview didn’t load. Tap it again.')}});
+
 let PH=[];
 async function findPhotos(){
   const name=arName,st=$('#ph-st');st.hidden=false;st.classList.remove('err');st.innerHTML='<span class="spin"></span>&nbsp; Looking for photos…';$('#ph-res').innerHTML='';
