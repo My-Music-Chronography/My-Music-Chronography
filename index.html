@@ -516,10 +516,12 @@ start();
       <div class="fc"><label for="ed-g">Genres</label><input id="ed-g" autocomplete="off" placeholder="Folk, Indie Folk"></div>
     </div>
     <div class="fc"><label for="ed-l">Label</label><input id="ed-l" autocomplete="off" placeholder="Optional"></div>
-    <div class="row2">
+    <div class="ph-btns">
+      <button type="button" class="card-btn" id="ed-find">Find Cover</button>
       <button type="button" class="card-btn" id="ed-photo">Choose Cover</button>
       <button type="button" class="card-btn" id="ed-nophoto">No Cover</button>
     </div>
+    <div class="lk-st" id="cv-st" hidden></div><div class="sr-list" id="cv-res"></div>
     <input type="file" id="ed-file" accept="image/*" hidden>
     <div class="list-divider sm"><span id="ed-trk-h">Tracks</span></div>
     <div id="ed-tracks" style="display:flex; flex-direction:column; gap:4px"></div>
@@ -779,7 +781,7 @@ function renderData(){
     <div class="row2"><button type="button" class="card-btn ink" id="dt-exp">Save Backup</button><button type="button" class="card-btn" id="dt-imp">Import Backup</button></div>
     <div class="note">Everything is stored in this browser on this device. Save a backup to keep a copy or move it to another device. Importing adds the albums in the backup and updates ones you already have; nothing is removed.</div>
     <div class="list-divider sm"><span>About</span></div>
-    <div class="note">Album details from <a href="https://musicbrainz.org" target="_blank" rel="noopener">MusicBrainz</a>, covers from the <a href="https://coverartarchive.org" target="_blank" rel="noopener">Cover Art Archive</a>, artist photos from <a href="https://www.deezer.com" target="_blank" rel="noopener">Deezer</a>, <a href="https://www.theaudiodb.com" target="_blank" rel="noopener">TheAudioDB</a> and <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a>, and previews from Deezer. All free, none need an account.</div>`;
+    <div class="note">Album details from <a href="https://musicbrainz.org" target="_blank" rel="noopener">MusicBrainz</a>, covers from the <a href="https://coverartarchive.org" target="_blank" rel="noopener">Cover Art Archive</a>, Deezer, TheAudioDB and <a href="https://www.apple.com/itunes/" target="_blank" rel="noopener">iTunes</a>, artist photos from <a href="https://www.deezer.com" target="_blank" rel="noopener">Deezer</a>, <a href="https://www.theaudiodb.com" target="_blank" rel="noopener">TheAudioDB</a> and <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a>, and previews from Deezer. All free, none need an account.</div>`;
   $('#dt-exp').onclick=exportBackup;$('#dt-imp').onclick=()=>$('#imp-file').click();
 }
 
@@ -839,7 +841,7 @@ function renderAlbum(){
     ${genresOf(a).length?`<div class="gtags">${genresOf(a).map(g=>`<span>${esc(g)}</span>`).join('')}</div>`:''}
     ${tr.length?`<div class="list-divider sm"><span>Tracklist</span></div><div class="sr-list">${!discs?`<div class="sr-sec">${tr.length} tracks<span>${len?fmtLen(len):''}</span></div>`:''}${rows}</div>`:`<div class="empty">No tracks listed. Tap <b>Edit</b> to add them.</div>`}
     ${tr.length?`<div class="note">${pvNote(a)}</div>`:''}
-    <div class="note">Added ${new Date(a.added).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}${a.mbid?` · <a href="https://musicbrainz.org/release-group/${esc(a.mbid)}" target="_blank" rel="noopener">View on MusicBrainz</a>`:''}</div>`;
+    <div class="note">Added ${new Date(a.added).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}${a.cover&&a.coverSrc?' · Cover: '+esc(a.coverSrc):''}${a.mbid?` · <a href="https://musicbrainz.org/release-group/${esc(a.mbid)}" target="_blank" rel="noopener">View on MusicBrainz</a>`:''}</div>`;
 }
 $('#al-body').addEventListener('click',e=>{const u=e.target.closest('[data-artist]');if(u){openArtist(u.dataset.artist);return}
   const r=e.target.closest('.tr-row');if(r)togglePreview(+r.dataset.i)});
@@ -908,6 +910,7 @@ function openEditor(id){
   $('#ed-del').hidden=!a;$('#ed-del').classList.remove('armed');$('#ed-del').textContent='Delete Album';
   $('#lk-album').value='';$('#lk-artist').value='';$('#lk-res').innerHTML='';LK=[];lkQ=null;SEL.clear();BULK=false;updBar();setLkType(S.ui.lkType||'All');
   setLkSt('Search MusicBrainz to fill everything in, or type it yourself below.');
+  $('#cv-res').innerHTML='';$('#cv-st').hidden=true;CV=[];
   fillForm();$('#ed-pv').classList.remove('in');openPage('#ed-page');
   requestAnimationFrame(()=>requestAnimationFrame(()=>$('#ed-pv').classList.add('in')));
 }
@@ -953,9 +956,9 @@ $('#ed-tracks').addEventListener('click',e=>{const b=e.target.closest('.x');if(!
 $('#ed-addtrk').onclick=()=>{const d=ED.tracks.length?ED.tracks[ED.tracks.length-1].d||1:1;ED.tracks.push({t:'',len:0,d});renderTracks();
   const ins=$$('#ed-tracks .tt');ins[ins.length-1].focus()};
 $('#ed-sleeve').onclick=()=>$('#ed-file').click();$('#ed-photo').onclick=()=>$('#ed-file').click();
-$('#ed-nophoto').onclick=()=>{ED.cover='';renderSleeve()};
+$('#ed-nophoto').onclick=()=>{ED.cover='';ED.coverSrc='';ED.noCover=true;renderSleeve()};   // a deliberate choice: never filled in automatically
 $('#ed-file').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
-  try{ED.cover=await shrink(URL.createObjectURL(f),500);renderSleeve()}catch(_){toast('Couldn’t open that picture')}});
+  try{ED.cover=await shrink(URL.createObjectURL(f),500);ED.coverSrc='Your photo';ED.noCover=false;renderSleeve()}catch(_){toast('Couldn’t open that picture')}});
 function shrink(src,max){return new Promise((ok,no)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>{
   const k=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.round(im.naturalWidth*k),h=Math.round(im.naturalHeight*k),
     c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);
@@ -972,7 +975,7 @@ $('#ed-save').onclick=()=>{
   else{a.id=uid();a.added=Date.now();S.albums.push(a);toast(`Added “${a.title}”`)}
   ED0=edSnap();save();render();closePage('#ed-page');
   if(stack.includes('#al-page'))renderAlbum();if(stack.includes('#ar-page'))renderArtist();
-  autoPhoto(a.artist);checkPreviews(a.id);
+  autoPhoto(a.artist);checkPreviews(a.id);autoCover(a.id);
 };
 let delT;$('#ed-del').onclick=()=>{const b=$('#ed-del');
   if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Tap again to delete';clearTimeout(delT);delT=setTimeout(()=>{b.classList.remove('armed');b.textContent='Delete Album'},3000);return}
@@ -1105,7 +1108,7 @@ async function fetchAlbum(g){
 }
 async function pickRG(g){
   const x=await fetchAlbum(g),keepLP=(ED.typeTouched&&ED.type==='LP')||S.ui.lkType==='LP';
-  Object.assign(ED,x,{artist:x.artist||ED.artist,type:keepLP?'LP':x.type});   // LP chosen (or LPs filtered): it stays an LP
+  Object.assign(ED,x,{artist:x.artist||ED.artist,type:keepLP?'LP':x.type,coverSrc:x.cover?'Cover Art Archive':'',noCover:false});   // LP chosen (or LPs filtered): it stays an LP
   $('#fc-title').dataset.tried='';$('#fc-artist').dataset.tried='';fillForm();
 }
 // several at once: each checked result is looked up in full and added, one after another
@@ -1122,7 +1125,7 @@ $('#lk-addsel').onclick=async()=>{
       if(S.albums.some(a=>a.mbid===g.id)){SEL.delete(g.id);continue}
       const x=await fetchAlbum(g);
       S.albums.push({id:uid(),added:Date.now(),...x,artist:x.artist||'Unknown Artist',type:lp?'LP':x.type,genre:normGenres(x.genre)});
-      SEL.delete(g.id);ok++;save();autoPhoto(x.artist||'Unknown Artist');checkPreviews(S.albums[S.albums.length-1].id);
+      SEL.delete(g.id);ok++;save();autoPhoto(x.artist||'Unknown Artist');checkPreviews(S.albums[S.albums.length-1].id);autoCover(S.albums[S.albums.length-1].id);
       if(row){row.classList.remove('sel');row.classList.add('ok')}
     }catch(e){fail++;if(row)row.classList.add('fail')}
   }
@@ -1287,6 +1290,75 @@ function pvNote(a){
   return `<span class="pv-note">${have===t.length?`All ${t.length} tracks have`:have?`${have} of ${t.length} tracks have`:'No tracks have'} a 30-second Deezer preview.${have?' Tap one to listen.':''}</span>`;
 }
 
+/* ================= album covers: Cover Art Archive (any edition), Deezer, TheAudioDB, iTunes ================= */
+// all free, none need an account. Matches are by exact title and artist, ignoring case, punctuation and "(Remastered)" etc.
+const coverMatch=(a,title,artist)=>trNorm(title)===trNorm(a.title)&&(!artist||nameNorm(artist)===nameNorm(a.artist)||nameNorm(artist).includes(nameNorm(a.artist)));
+async function caaCovers(a){
+  if(!a.mbid)return[];
+  const out=[];
+  // the album's own front cover, then other editions' (reissues, other countries) when the main one has none
+  if(await imgOk(`https://coverartarchive.org/release-group/${a.mbid}/front-250`))out.push({url:`https://coverartarchive.org/release-group/${a.mbid}/front-500`,thumb:`https://coverartarchive.org/release-group/${a.mbid}/front-250`,title:a.title,note:'Cover Art Archive',src:'Cover Art Archive'});
+  try{const rg=await mb(`release-group/${a.mbid}?inc=releases`);
+    const rels=(rg.releases||[]).slice(0,10);
+    const got=await Promise.allSettled(rels.map(r=>fetch(`https://coverartarchive.org/release/${r.id}/`).then(x=>x.ok?x.json():null)));
+    got.forEach((g,i)=>{const im=g.status==='fulfilled'&&g.value&&(g.value.images||[]).find(x=>x.front);if(!im)return;const r=rels[i];
+      out.push({url:im.thumbnails?.['500']||im.thumbnails?.large||im.image,thumb:im.thumbnails?.['250']||im.thumbnails?.small||im.image,title:r.title||a.title,
+        note:`Cover Art Archive · ${[r.date&&r.date.slice(0,4),r.country,r.disambiguation].filter(Boolean).join(' · ')||'edition'}`,src:'Cover Art Archive'})});
+  }catch(_){}
+  return out;
+}
+async function deezerCovers(a){
+  const r=await jsonp(`https://api.deezer.com/search/album?q=${encodeURIComponent(`artist:"${a.artist}" album:"${a.title}"`)}&limit=15`);
+  return (r.data||[]).filter(x=>(x.cover_xl||x.cover_big)&&coverMatch(a,x.title,x.artist?.name))
+    .map(x=>({url:x.cover_xl||x.cover_big,thumb:x.cover_medium||x.cover_big,title:x.title,note:`Deezer${x.record_type?' · '+x.record_type:''}`,src:'Deezer'}));
+}
+async function adbCovers(a){
+  let list=[];
+  if(a.mbid){const j=await adb(`album-mb.php?i=${encodeURIComponent(a.mbid)}`);list=j.album||[]}
+  if(!list.length){const j=await adb(`searchalbum.php?s=${encodeURIComponent(a.artist)}&a=${encodeURIComponent(a.title)}`);list=(j.album||[]).filter(x=>coverMatch(a,x.strAlbum,x.strArtist))}
+  return list.filter(x=>x.strAlbumThumb).map(x=>({url:x.strAlbumThumb,thumb:x.strAlbumThumb+'/preview',title:x.strAlbum,note:`TheAudioDB${x.intYearReleased?' · '+x.intYearReleased:''}`,src:'TheAudioDB'}));
+}
+// iTunes answers as JSONP too (a script tag), with its own callback name
+function itunes(q){return new Promise((ok,no)=>{const cb='__it'+Math.random().toString(36).slice(2),sc=document.createElement('script');
+  const done=()=>{clearTimeout(t);try{delete window[cb]}catch(_){window[cb]=undefined}sc.remove()};const t=setTimeout(()=>{done();no(new Error('no answer'))},9000);
+  window[cb]=d=>{done();ok(d)};sc.onerror=()=>{done();no(new Error('blocked'))};
+  sc.src=`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=15&callback=${cb}`;document.head.appendChild(sc)})}
+async function itunesCovers(a){
+  const r=await itunes(`${a.artist} ${a.title}`);
+  return (r.results||[]).filter(x=>x.artworkUrl100&&coverMatch(a,x.collectionName,x.artistName))
+    .map(x=>({url:x.artworkUrl100.replace('100x100bb','600x600bb'),thumb:x.artworkUrl100.replace('100x100bb','250x250bb'),title:x.collectionName,note:`iTunes${x.releaseDate?' · '+x.releaseDate.slice(0,4):''}`,src:'iTunes'}));
+}
+// a new album with no cover gets one by itself: first exact match, in this order. Tried at most once a week, never after "No Cover"
+let cvChain=Promise.resolve();
+function autoCover(id){
+  cvChain=cvChain.then(async()=>{
+    const a=S.albums.find(x=>x.id===id);if(!a||a.cover||a.noCover||(a.coverTried&&Date.now()-a.coverTried<7*864e5))return;
+    a.coverTried=Date.now();
+    for(const f of [caaCovers,deezerCovers,adbCovers,itunesCovers]){
+      let c=null;try{c=(await f(a))[0]}catch(_){}
+      if(c&&!a.cover){a.cover=await keepPhoto(c.url);a.coverSrc=c.src;break}
+    }
+    save();if(a.cover){render();if(alId===a.id&&stack.includes('#al-page'))renderAlbum();if(stack.includes('#ar-page'))renderArtist()}
+  }).catch(()=>{});
+}
+let CV=[];
+async function findCovers(){
+  const a={title:(ED.title||'').trim(),artist:(ED.artist||'').trim(),mbid:ED.mbid},st=$('#cv-st');
+  if(!a.title){st.hidden=false;st.classList.add('err');st.textContent='Type the title (and artist) first.';return}
+  st.hidden=false;st.classList.remove('err');st.innerHTML='<span class="spin"></span>&nbsp; Looking for covers…';$('#cv-res').innerHTML='';
+  const res=await Promise.allSettled([caaCovers(a),deezerCovers(a),adbCovers(a),itunesCovers(a)]);
+  CV=res.flatMap(r=>r.status==='fulfilled'?r.value:[]);
+  if(!CV.length){st.classList.add('err');st.textContent=res.every(r=>r.status==='rejected')?'Couldn’t reach the cover sources. Try again in a moment.':'No covers found. You can choose one of your own.';return}
+  st.hidden=true;
+  $('#cv-res').innerHTML=`<div class="sr-sec">Pick a cover<span>${CV.length}</span></div>`+CV.map((x,i)=>`<button type="button" class="lk-row cv-row" data-i="${i}"><div class="art ph" style="--c:${clothOf(a.title+'|'+a.artist)}"><span>${esc(initials(x.title))}</span><img alt="" loading="lazy" src="${esc(x.thumb)}" onerror="this.closest('.cv-row').remove()"></div><span class="tx"><b>${esc(x.title)}</b><small>${esc(x.note)}</small></span><span class="tg">Use</span></button>`).join('');
+}
+$('#ed-find').onclick=findCovers;
+$('#cv-res').addEventListener('click',async e=>{const r=e.target.closest('.cv-row');if(!r||r.classList.contains('busy'))return;const c=CV[+r.dataset.i];
+  r.classList.add('busy');r.querySelector('.tg').innerHTML='<span class="spin"></span>';
+  ED.cover=await keepPhoto(c.url);ED.coverSrc=c.src;ED.noCover=false;renderSleeve();$('#cv-res').innerHTML='';
+  const st=$('#cv-st');st.hidden=false;st.classList.remove('err');st.textContent=`Cover from ${c.src}. Tap ${ED.id?'Save':'Add'} to keep it.`;
+  $('#ed-page').scrollTo({top:0,behavior:'smooth'})});
+
 let PH=[];
 async function findPhotos(){
   const name=arName,st=$('#ph-st');st.hidden=false;st.classList.remove('err');st.innerHTML='<span class="spin"></span>&nbsp; Looking for photos…';$('#ph-res').innerHTML='';
@@ -1327,6 +1399,7 @@ $('#imp-file').addEventListener('change',async e=>{const f=e.target.files[0];e.t
   if(S.albums.length)flush();   // writes both copies, so data saved by the old version gets its localStorage copy too
   for(const x of artistMap().values())autoPhoto(x.name);   // any artist still without a photo (tried at most once a week)
   for(const a of S.albums)if(!a.pvChecked)checkPreviews(a.id);   // albums added before preview checks, or while offline
+  for(const a of S.albums)if(!a.cover)autoCover(a.id);           // albums with no cover yet (tried at most once a week)
   if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
