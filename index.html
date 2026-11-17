@@ -702,12 +702,12 @@ function renderAlbum(){
   let rows='',ld=null,n=0;
   tr.forEach((x,i)=>{const d=x.d||1;if(discs&&d!==ld){rows+=`<div class="sr-sec">Disc ${d}<span>${tr.filter(y=>(y.d||1)===d).length} tracks</span></div>`;ld=d;n=0}n++;
     const st=PV.id===a.id&&PV.i===i?(PV.loading?'loading':'playing'):'';
-    rows+=`<div class="tr-row ${st} ${PV.none.has(a.id+':'+i)?'none':''}" data-i="${i}"><span class="n" style="--c:${c}">${n}</span><span class="tx">${esc(x.t||'Untitled')}</span><span class="ln">${fmtLen(x.len)}</span><span class="pb" aria-label="Play preview">${PLAY_SVG}</span></div>`});
+    rows+=`<div class="tr-row ${st} ${(PV.none.has(a.id+':'+i)||x.pv===false)?'none':''}" data-i="${i}"><span class="n" style="--c:${c}">${n}</span><span class="tx">${esc(x.t||'Untitled')}</span><span class="ln">${fmtLen(x.len)}</span><span class="pb" aria-label="Play preview">${PLAY_SVG}</span></div>`});
   $('#al-body').innerHTML=`<div class="show-head">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div><div class="a"><u data-artist="${esc(a.artist||'Unknown Artist')}">${esc(a.artist||'Unknown Artist')}</u></div><div class="m">${esc([a.type,a.year].filter(Boolean).join(' · '))}</div></div></div>
     <div class="stats three"><div><b>${tr.length}</b><small>Tracks</small></div><div><b>${len?fmtLen(len):'—'}</b><small>Length</small></div><div><b>${esc(a.label||'—')}</b><small>Label</small></div></div>
     ${genresOf(a).length?`<div class="gtags">${genresOf(a).map(g=>`<span>${esc(g)}</span>`).join('')}</div>`:''}
     ${tr.length?`<div class="list-divider sm"><span>Tracklist</span></div><div class="sr-list">${!discs?`<div class="sr-sec">${tr.length} tracks<span>${len?fmtLen(len):''}</span></div>`:''}${rows}</div>`:`<div class="empty">No tracks listed. Tap <b>Edit</b> to add them.</div>`}
-    ${tr.length?`<div class="note">Tap a track to hear a 30-second preview from Deezer.</div>`:''}
+    ${tr.length?`<div class="note">${pvNote(a)}</div>`:''}
     <div class="note">Added ${new Date(a.added).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}${a.mbid?` · <a href="https://musicbrainz.org/release-group/${esc(a.mbid)}" target="_blank" rel="noopener">View on MusicBrainz</a>`:''}</div>`;
 }
 $('#al-body').addEventListener('click',e=>{const u=e.target.closest('[data-artist]');if(u){openArtist(u.dataset.artist);return}
@@ -835,11 +835,13 @@ $('#ed-save').onclick=()=>{
   const a={...ED};delete a.typeTouched;
   a.title=a.title.trim();a.artist=a.artist.trim();a.genre=normGenres(a.genre);a.label=(a.label||'').trim();
   a.tracks=a.tracks.filter(x=>(x.t||'').trim()||x.len).map(x=>({t:(x.t||'').trim(),len:x.len||0,d:x.d||1}));
-  if(a.id){const i=S.albums.findIndex(x=>x.id===a.id);S.albums[i]=a;toast('Saved')}
+  if(a.id){const i=S.albums.findIndex(x=>x.id===a.id),o=S.albums[i];
+    if(o&&(nameNorm(o.title)!==nameNorm(a.title)||nameNorm(o.artist)!==nameNorm(a.artist)))delete a.dzAlbum;
+    PV.albums.delete(a.id);delete a.pvChecked;S.albums[i]=a;toast('Saved')}
   else{a.id=uid();a.added=Date.now();S.albums.push(a);toast(`Added “${a.title}”`)}
   ED0=edSnap();save();render();closePage('#ed-page');
   if(stack.includes('#al-page'))renderAlbum();if(stack.includes('#ar-page'))renderArtist();
-  autoPhoto(a.artist);
+  autoPhoto(a.artist);checkPreviews(a.id);
 };
 let delT;$('#ed-del').onclick=()=>{const b=$('#ed-del');
   if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Tap again to delete';clearTimeout(delT);delT=setTimeout(()=>{b.classList.remove('armed');b.textContent='Delete Album'},3000);return}
@@ -886,19 +888,39 @@ async function lookup(more){
   if(!more){
     const al=$('#lk-album').value.trim(),ar=$('#lk-artist').value.trim();
     if(!al&&!ar){setLkSt('Type an album name, an artist, or both.',true);return}
-    const parts=[];if(al)parts.push(`releasegroup:(${luc(al)})`);if(ar)parts.push(`artist:(${luc(ar)})`);
+    // the exact phrase counts five times as much as the loose words, so exact titles and names come back first
+    const parts=[];if(al)parts.push(`(releasegroup:"${luc(al)}"^5 OR releasegroup:(${luc(al)}))`);if(ar)parts.push(`(artist:"${luc(ar)}"^5 OR artist:(${luc(ar)}))`);
     const lt=S.ui.lkType||'All';if(lt!=='All')parts.push(`primarytype:${lt==='LP'?'album':lt.toLowerCase()}`);   // LPs search albums (MusicBrainz has no LP type) and add them as LPs
     lkQ={q:parts.join(' AND '),browse:!al,al,ar};lkOff=0;LK=[];SEL.clear();updBar();$('#lk-res').innerHTML='';
   }
   setLkSt('<span class="spin"></span>&nbsp; Searching MusicBrainz…');$('#lk-go').disabled=true;
   try{
-    const j=await mb(`release-group/?query=${encodeURIComponent(lkQ.q)}&limit=25&offset=${lkOff}`);
+    const j=await mb(`release-group/?query=${encodeURIComponent(lkQ.q)}&limit=50&offset=${lkOff}`);
     let got=j['release-groups']||[];
-    if(lkQ.browse)got.sort((a,b)=>String(a['first-release-date']||'9999').localeCompare(String(b['first-release-date']||'9999')));
-    LK=LK.concat(got);lkOff+=got.length;lkQ.count=j.count||0;
+    LK=rankLk(LK.concat(got.filter(g=>!LK.some(x=>x.id===g.id))));lkOff+=got.length;lkQ.count=j.count||0;
     renderLk();setLkSt(LK.length?'':`Nothing found. Try fewer words, check the spelling${(S.ui.lkType||'All')!=='All'?`, or show All instead of ${TYPE_PL[S.ui.lkType]} only`:''}.`,!LK.length);
   }catch(e){setLkSt(navigator.onLine?`Couldn’t reach MusicBrainz (${esc(e.message)}). Try again in a moment.`:'You’re offline. Looking up needs a connection — you can still type it in yourself.',true)}
   finally{$('#lk-go').disabled=false}
+}
+// Exact matches first, oldest release first; then closer-to-further matches, each by date; then the rest in MusicBrainz's order.
+// Exact ignores case, punctuation and a leading "The".
+function rankLk(list){
+  const qa=nameNorm(lkQ.al||''),qs=trNorm(lkQ.al||''),qr=nameNorm(lkQ.ar||'');
+  const tier=g=>{
+    const t=nameNorm(g.title),ts=trNorm(g.title),a=(g['artist-credit']||[]).map(c=>nameNorm(c.name||c.artist?.name)).concat(nameNorm(creditOf(g['artist-credit'])));
+    const arExact=!qr||a.includes(qr),arClose=!qr||a.some(x=>x.includes(qr)||qr.includes(x)&&x.length>2);
+    if(qa){
+      if(t===qa&&arExact)return 0;               // the exact title, by that artist
+      if(ts===qs&&arExact)return 1;              // the same title plus "(Remastered)", "(Live)"…
+      if(t===qa&&arClose)return 2;               // the exact title, by a similar name
+      if(t.includes(qa)&&arExact)return 3;       // the title contains it, by that artist
+      if(t===qa)return 4;                        // the exact title, by someone else
+      return 5;
+    }
+    return arExact?0:arClose?3:5;                // only an artist typed: everything by exactly them first
+  };
+  const date=g=>g['first-release-date']||'9999';
+  return list.map((g,i)=>({g,i,t:tier(g)})).sort((x,y)=>x.t-y.t||(x.t<5?date(x.g).localeCompare(date(y.g)):0)||x.i-y.i).map(x=>x.g);
 }
 function renderLk(){
   const rows=LK.map((g,i)=>{
@@ -969,7 +991,7 @@ $('#lk-addsel').onclick=async()=>{
       if(S.albums.some(a=>a.mbid===g.id)){SEL.delete(g.id);continue}
       const x=await fetchAlbum(g);
       S.albums.push({id:uid(),added:Date.now(),...x,artist:x.artist||'Unknown Artist',type:lp?'LP':x.type,genre:normGenres(x.genre)});
-      SEL.delete(g.id);ok++;save();autoPhoto(x.artist||'Unknown Artist');
+      SEL.delete(g.id);ok++;save();autoPhoto(x.artist||'Unknown Artist');checkPreviews(S.albums[S.albums.length-1].id);
       if(row){row.classList.remove('sel');row.classList.add('ok')}
     }catch(e){fail++;if(row)row.classList.add('fail')}
   }
@@ -1075,6 +1097,7 @@ async function playPreview(a,i){
   let url='';
   try{url=await previewFor(a,i)}catch(_){ if(PV.id===a.id&&PV.i===i){PV.loading=false;stopPreview();toast(navigator.onLine?'Couldn’t reach Deezer. Try again in a moment.':'Previews need a connection.')}return}
   if(PV.id!==a.id||PV.i!==i)return;   // another track was tapped meanwhile
+  if(a.tracks[i])a.tracks[i].pv=!!url;
   if(!url){PV.none.add(a.id+':'+i);const r=pvRows().find(r=>+r.dataset.i===i);if(r)r.classList.add('none');
     toast('No preview on Deezer for this track');PV.loading=false;nextPreview();return}
   PV.audio.src=url;
@@ -1084,13 +1107,35 @@ async function playPreview(a,i){
 // at the end of a preview, the next track plays; it stops after the last one
 function nextPreview(){
   const a=S.albums.find(x=>x.id===PV.id);if(!a){stopPreview();return}
-  let j=PV.i+1;while(j<a.tracks.length&&PV.none.has(a.id+':'+j))j++;
+  let j=PV.i+1;while(j<a.tracks.length&&(PV.none.has(a.id+':'+j)||a.tracks[j].pv===false))j++;
   if(j<a.tracks.length&&alId===a.id&&stack.includes('#al-page'))playPreview(a,j);else stopPreview();
 }
 PV.audio.addEventListener('timeupdate',()=>{if(PV.id!==alId)return;const r=pvRows().find(r=>+r.dataset.i===PV.i);
   if(r&&PV.audio.duration)r.style.setProperty('--p',Math.min(1,PV.audio.currentTime/PV.audio.duration))});
 PV.audio.addEventListener('ended',nextPreview);
 PV.audio.addEventListener('error',()=>{if(PV.id&&!PV.loading){PV.albums.delete(PV.id);stopPreview();toast('That preview didn’t load. Tap it again.')}});
+
+// checks Deezer for every track of an album, one album at a time in the background, and marks which have a preview
+let pvChain=Promise.resolve();
+function checkPreviews(id){
+  pvChain=pvChain.then(async()=>{
+    const a=S.albums.find(x=>x.id===id);if(!a||!a.tracks||!a.tracks.length||a.pvChecked)return;
+    try{await dzAlbumTracks(a)}catch(_){return}   // offline or Deezer down: left for next time
+    for(let i=0;i<a.tracks.length;i++){
+      if(!S.albums.includes(a))return;            // deleted meanwhile
+      try{a.tracks[i].pv=!!(await previewFor(a,i))}catch(_){return}
+      await sleep(120);
+    }
+    a.pvChecked=Date.now();save();
+    if(alId===a.id&&stack.includes('#al-page')&&!PV.id)renderAlbum();
+    else if(alId===a.id){pvRows().forEach(r=>{const t=a.tracks[+r.dataset.i];if(t&&t.pv===false)r.classList.add('none')});const nt=$('#al-body .pv-note');if(nt)nt.outerHTML=pvNote(a)}
+  }).catch(()=>{});
+}
+function pvNote(a){
+  const t=a.tracks||[],have=t.filter(x=>x.pv).length;
+  if(!a.pvChecked)return '<span class="pv-note">Tap a track to hear a 30-second preview from Deezer.</span>';
+  return `<span class="pv-note">${have===t.length?`All ${t.length} tracks have`:have?`${have} of ${t.length} tracks have`:'No tracks have'} a 30-second Deezer preview.${have?' Tap one to listen.':''}</span>`;
+}
 
 let PH=[];
 async function findPhotos(){
@@ -1131,6 +1176,7 @@ $('#imp-file').addEventListener('change',async e=>{const f=e.target.files[0];e.t
   setTab(['artists','library','data'].includes(S.ui.tab)?S.ui.tab:'artists');
   if(S.albums.length)flush();   // writes both copies, so data saved by the old version gets its localStorage copy too
   for(const x of artistMap().values())autoPhoto(x.name);   // any artist still without a photo (tried at most once a week)
+  for(const a of S.albums)if(!a.pvChecked)checkPreviews(a.id);   // albums added before preview checks, or while offline
   if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
