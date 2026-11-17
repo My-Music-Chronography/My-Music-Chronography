@@ -156,6 +156,9 @@
   .ac-page:active{background:var(--bg);}
   @media (prefers-reduced-motion:reduce){ .ac-drop{transition:none;} }
   /* the artist window: their photo, and where it came from */
+  .gtags{display:flex; flex-wrap:wrap; gap:4px;}
+  .gtags span{height:24px; display:flex; align-items:center; padding:0 9px; background:#fff; border:3px solid #000; border-radius:6px;
+    font:700 .58rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase;}
   .ph-btns{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px;}
   .ph-src{font:700 .5rem Arial,sans-serif; letter-spacing:.7px; text-transform:uppercase; color:var(--muted);}
 
@@ -233,6 +236,21 @@
   .lk-row .tg{flex:none; align-self:center; margin-right:8px; padding:2px 5px; border:2px solid currentColor; border-radius:5px; font:700 .5rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase; color:var(--muted);}
   .lk-row:active{background:var(--unread);}
   .lk-row.busy .tg{border:0; padding:0;}
+  .lk-type{height:34px;} .lk-type button{font-size:min(.66rem,2.7vw);}
+  .lk-ck{flex:none; align-self:stretch; width:46px; display:grid; place-items:center; border-left:3px solid #000; background:var(--unread); cursor:pointer;}
+  .lk-ck i{width:26px; height:26px; display:grid; place-items:center; border:3px solid #000; border-radius:50%; background:#fff;}
+  .lk-ck svg{width:13px; height:13px; fill:none; stroke:#fff; stroke-width:3.6; stroke-linecap:round; stroke-linejoin:round; opacity:0;}
+  .lk-row.sel .lk-ck{background:#5b6633;} .lk-row.sel .lk-ck i{background:var(--ink);} .lk-row.sel .lk-ck svg{opacity:1;}
+  .lk-row.sel{background:#f3f1e6;}
+  .lk-ck.own{cursor:default; background:var(--hdr-cell);} .lk-ck.own b{font:700 .46rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); writing-mode:vertical-rl; transform:rotate(180deg);}
+  .lk-row.ok .lk-ck{background:#2e4636;} .lk-row.fail .lk-ck{background:var(--red);}
+  .sr-sec button{margin:0; padding:0; border:0; background:none; font:700 .56rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--ink); text-decoration:underline; cursor:pointer;}
+  #lk-bar{position:sticky; bottom:0; z-index:6; display:flex; gap:4px; padding:4px 4px calc(4px + env(safe-area-inset-bottom)); background:var(--band); border-top:3px solid #000; border-bottom:3px solid #000;}
+  #lk-bar[hidden]{display:none;}
+  #lk-bar button{height:45px; margin:0; border:3px solid #000; border-radius:8px; cursor:pointer;}
+  #lk-clear{flex:0 0 25%; background:#fff; font:700 .74rem Arial,sans-serif; letter-spacing:.4px; text-transform:uppercase; color:var(--ink);}
+  #lk-addsel{flex:1; min-width:0; background:#5b6633; color:#fff; font:700 min(.9rem,3.6vw)/1 Georgia,serif; letter-spacing:.12em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #lk-addsel:disabled{filter:saturate(.6) brightness(.9); cursor:default;}
   .lk-more{height:36px; margin:0; border:0; border-radius:0; background:var(--hdr-cell); font:700 .62rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase;}
 
   /* tracks */
@@ -341,6 +359,7 @@
       <div class="fc"><label for="lk-artist">Artist</label><input id="lk-artist" autocomplete="off" enterkeyhint="search" placeholder="Optional"></div>
       <button type="button" class="card-btn ink" id="lk-go">Search</button>
     </div>
+    <div class="seg lk-type" id="lk-type"><button type="button" data-t="All" class="on">All</button><button type="button" data-t="Album">Albums</button><button type="button" data-t="LP">LPs</button><button type="button" data-t="EP">EPs</button><button type="button" data-t="Single">Singles</button></div>
     <div class="lk-st" id="lk-st">Search MusicBrainz to fill everything in, or type it yourself below.</div>
     <div class="sr-list" id="lk-res"></div>
     <div class="list-divider sm"><span>Details</span></div>
@@ -351,7 +370,7 @@
     </div>
     <div class="row2">
       <div class="fc"><label for="ed-y">Year</label><input id="ed-y" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Optional"></div>
-      <div class="fc"><label for="ed-g">Genre</label><input id="ed-g" autocomplete="off" placeholder="Optional"></div>
+      <div class="fc"><label for="ed-g">Genres</label><input id="ed-g" autocomplete="off" placeholder="Folk, Indie Folk"></div>
     </div>
     <div class="fc"><label for="ed-l">Label</label><input id="ed-l" autocomplete="off" placeholder="Optional"></div>
     <div class="row2">
@@ -364,6 +383,7 @@
     <button type="button" class="dash-btn" id="ed-addtrk">+ Add Track</button>
     <button type="button" class="del-btn" id="ed-del" hidden>Delete Album</button>
   </div>
+  <div id="lk-bar" hidden><button type="button" id="lk-clear">Clear</button><button type="button" id="lk-addsel">Add Selected</button></div>
 </div>
 
 <!-- the artist list (from Add / Edit) -->
@@ -415,6 +435,8 @@ function artistArt(name){
 function fmtLen(s){s=Math.round(s||0);if(!s)return '';const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${x}`:`${m}:${x}`}
 function fmtLong(s){s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.round(s%3600/60);return h?`${h}h ${m}m`:`${m}m`}
 function parseLen(v){v=String(v||'').trim();if(!v)return 0;const p=v.split(':').map(x=>parseInt(x,10));if(p.some(isNaN))return 0;return p.reduce((t,x)=>t*60+x,0)}
+const genresOf=a=>String(a.genre||'').split(',').map(x=>x.trim()).filter(Boolean);
+const normGenres=v=>[...new Map(String(v||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>[x.toLowerCase(),x])).values()].join(', ');
 const total=a=>(a.tracks||[]).reduce((t,x)=>t+(x.len||0),0);
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200)}
 
@@ -475,14 +497,14 @@ function cmpAlb(k){
     year:(a,b)=>(yr(a)||9999)-(yr(b)||9999)||T(a,b),
     length:(a,b)=>total(a)-total(b)||T(a,b),
     type:(a,b)=>TYPES.indexOf(a.type)-TYPES.indexOf(b.type)||sortKey(a.artist).localeCompare(sortKey(b.artist))||(yr(a)||9999)-(yr(b)||9999),
-    genre:(a,b)=>(a.genre?0:1)-(b.genre?0:1)||String(a.genre||'').toLowerCase().localeCompare(String(b.genre||'').toLowerCase())||sortKey(a.artist).localeCompare(sortKey(b.artist))||(yr(a)||9999)-(yr(b)||9999),
+    genre:(a,b)=>(a.genre?0:1)-(b.genre?0:1)||String(genresOf(a)[0]||'').toLowerCase().localeCompare(String(genresOf(b)[0]||'').toLowerCase())||sortKey(a.artist).localeCompare(sortKey(b.artist))||(yr(a)||9999)-(yr(b)||9999),
   }[k];
 }
 function groupOf(k,a){
   if(k==='artist')return a.artist||'Unknown Artist';
   if(k==='year'){const y=yr(a);return y?`${Math.floor(y/10)*10}s`:'No Year'}
   if(k==='type')return TYPE_PL[a.type];
-  if(k==='genre')return a.genre||'No Genre';
+  if(k==='genre')return genresOf(a)[0]||'No Genre';   // grouped under its main (first) genre
   return null;
 }
 let Q='';   // the search text for the tab on screen
@@ -517,7 +539,7 @@ function albMini(a,hit){
 }
 function albRow(a,hit,own){   // own: shown under its artist already, so the artist line is left off
   const len=total(a),n=(a.tracks||[]).length;
-  const meta=[a.year,a.genre,n?`${n} track${n===1?'':'s'}`:'',len?fmtLen(len):''].filter(Boolean).join(' · ');
+  const meta=[a.year,genresOf(a)[0],n?`${n} track${n===1?'':'s'}`:'',len?fmtLen(len):''].filter(Boolean).join(' · ');
   return `<div class="alb" data-id="${a.id}">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div>${own?'':`<div class="a">${esc(a.artist||'Unknown Artist')}</div>`}${hit?`<div class="hit">♪ ${esc(hit)}</div>`:`<div class="m">${esc(meta)||'&nbsp;'}</div>`}</div><div class="ty" style="--tc:${TYPE_C[a.type]}"><span>${esc(a.type)}</span></div></div>`;
 }
 function renderLib(){
@@ -560,8 +582,8 @@ function renderArtists(){
 }
 function renderData(){
   const al=S.albums,tr=al.reduce((t,a)=>t+(a.tracks||[]).length,0),len=al.reduce((t,a)=>t+total(a),0),ar=artistMap().size;
-  const gc={};for(const a of al)if(a.genre)gc[a.genre]=(gc[a.genre]||0)+1;
-  const gs=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,8),gmax=gs[0]?.[1]||1;
+  const gc={},gn={};for(const a of al)for(const g of genresOf(a)){const k=g.toLowerCase();gc[k]=(gc[k]||0)+1;gn[k]=gn[k]||g}
+  const gs=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>[gn[k],v]),gmax=gs[0]?.[1]||1;
   const dc={};for(const a of al){const y=yr(a);if(y){const d=Math.floor(y/10)*10;dc[d]=(dc[d]||0)+1}}
   const ds=Object.entries(dc).sort((a,b)=>a[0]-b[0]),dmax=Math.max(1,...ds.map(x=>x[1]));
   const tc=TYPES.map(t=>[t,al.filter(a=>a.type===t).length]).filter(x=>x[1]),tmax=Math.max(1,...tc.map(x=>x[1]));
@@ -630,7 +652,8 @@ function renderAlbum(){
   tr.forEach(x=>{const d=x.d||1;if(discs&&d!==ld){rows+=`<div class="sr-sec">Disc ${d}<span>${tr.filter(y=>(y.d||1)===d).length} tracks</span></div>`;ld=d;n=0}n++;
     rows+=`<div class="tr-row"><span class="n" style="--c:${c}">${n}</span><span class="tx">${esc(x.t||'Untitled')}</span><span class="ln">${fmtLen(x.len)}</span></div>`});
   $('#al-body').innerHTML=`<div class="show-head">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div><div class="a"><u data-artist="${esc(a.artist||'Unknown Artist')}">${esc(a.artist||'Unknown Artist')}</u></div><div class="m">${esc([a.type,a.year].filter(Boolean).join(' · '))}</div></div></div>
-    <div class="stats"><div><b>${tr.length}</b><small>Tracks</small></div><div><b>${len?fmtLen(len):'—'}</b><small>Length</small></div><div><b>${esc(a.genre||'—')}</b><small>Genre</small></div><div><b>${esc(a.label||'—')}</b><small>Label</small></div></div>
+    <div class="stats three"><div><b>${tr.length}</b><small>Tracks</small></div><div><b>${len?fmtLen(len):'—'}</b><small>Length</small></div><div><b>${esc(a.label||'—')}</b><small>Label</small></div></div>
+    ${genresOf(a).length?`<div class="gtags">${genresOf(a).map(g=>`<span>${esc(g)}</span>`).join('')}</div>`:''}
     ${tr.length?`<div class="list-divider sm"><span>Tracklist</span></div><div class="sr-list">${!discs?`<div class="sr-sec">${tr.length} tracks<span>${len?fmtLen(len):''}</span></div>`:''}${rows}</div>`:`<div class="empty">No tracks listed. Tap <b>Edit</b> to add them.</div>`}
     <div class="note">Added ${new Date(a.added).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}${a.mbid?` · <a href="https://musicbrainz.org/release-group/${esc(a.mbid)}" target="_blank" rel="noopener">View on MusicBrainz</a>`:''}</div>`;
 }
@@ -698,7 +721,7 @@ function openEditor(id){
   ED=a?JSON.parse(JSON.stringify(a)):blankAlbum();ED.typeTouched=!!a;ED0=edSnap();
   $('#ed-title').textContent=a?'Edit Album':'Add an Album';$('#ed-save').textContent=a?'Save':'Add';
   $('#ed-del').hidden=!a;$('#ed-del').classList.remove('armed');$('#ed-del').textContent='Delete Album';
-  $('#lk-album').value=a?'':'';$('#lk-artist').value='';$('#lk-res').innerHTML='';
+  $('#lk-album').value='';$('#lk-artist').value='';$('#lk-res').innerHTML='';LK=[];lkQ=null;SEL.clear();BULK=false;updBar();setLkType(S.ui.lkType||'All');
   setLkSt('Search MusicBrainz to fill everything in, or type it yourself below.');
   fillForm();$('#ed-pv').classList.remove('in');openPage('#ed-page');
   requestAnimationFrame(()=>requestAnimationFrame(()=>$('#ed-pv').classList.add('in')));
@@ -756,7 +779,7 @@ $('#ed-cancel').onclick=()=>{if(edDirty()&&!confirm('Discard this album?'))retur
 $('#ed-save').onclick=()=>{
   if($('#ed-save').disabled)return;
   const a={...ED};delete a.typeTouched;
-  a.title=a.title.trim();a.artist=a.artist.trim();a.genre=(a.genre||'').trim();a.label=(a.label||'').trim();
+  a.title=a.title.trim();a.artist=a.artist.trim();a.genre=normGenres(a.genre);a.label=(a.label||'').trim();
   a.tracks=a.tracks.filter(x=>(x.t||'').trim()||x.len).map(x=>({t:(x.t||'').trim(),len:x.len||0,d:x.d||1}));
   if(a.id){const i=S.albums.findIndex(x=>x.id===a.id);S.albums[i]=a;toast('Saved')}
   else{a.id=uid();a.added=Date.now();S.albums.push(a);toast(`Added “${a.title}”`)}
@@ -810,8 +833,8 @@ async function lookup(more){
     const al=$('#lk-album').value.trim(),ar=$('#lk-artist').value.trim();
     if(!al&&!ar){setLkSt('Type an album name, an artist, or both.',true);return}
     const parts=[];if(al)parts.push(`releasegroup:(${luc(al)})`);if(ar)parts.push(`artist:(${luc(ar)})`);
-    if(ED.typeTouched&&ED.type!=='LP')parts.push(`primarytype:${ED.type.toLowerCase()}`);
-    lkQ={q:parts.join(' AND '),browse:!al};lkOff=0;LK=[];$('#lk-res').innerHTML='';
+    const lt=S.ui.lkType||'All';if(lt!=='All')parts.push(`primarytype:${lt==='LP'?'album':lt.toLowerCase()}`);   // LPs search albums (MusicBrainz has no LP type) and add them as LPs
+    lkQ={q:parts.join(' AND '),browse:!al,al,ar};lkOff=0;LK=[];SEL.clear();updBar();$('#lk-res').innerHTML='';
   }
   setLkSt('<span class="spin"></span>&nbsp; Searching MusicBrainz…');$('#lk-go').disabled=true;
   try{
@@ -819,30 +842,40 @@ async function lookup(more){
     let got=j['release-groups']||[];
     if(lkQ.browse)got.sort((a,b)=>String(a['first-release-date']||'9999').localeCompare(String(b['first-release-date']||'9999')));
     LK=LK.concat(got);lkOff+=got.length;lkQ.count=j.count||0;
-    renderLk();setLkSt(LK.length?'':`Nothing found. Try fewer words, check the spelling${ED.typeTouched&&ED.type!=='LP'?`, or pick a different type (searching ${TYPE_PL[ED.type]} only)`:''}.`,!LK.length);
+    renderLk();setLkSt(LK.length?'':`Nothing found. Try fewer words, check the spelling${(S.ui.lkType||'All')!=='All'?`, or show All instead of ${TYPE_PL[S.ui.lkType]} only`:''}.`,!LK.length);
   }catch(e){setLkSt(navigator.onLine?`Couldn’t reach MusicBrainz (${esc(e.message)}). Try again in a moment.`:'You’re offline. Looking up needs a connection — you can still type it in yourself.',true)}
   finally{$('#lk-go').disabled=false}
 }
 function renderLk(){
   const rows=LK.map((g,i)=>{
     const y=(g['first-release-date']||'').slice(0,4),sec=(g['secondary-types']||[]).join(', '),ar=creditOf(g['artist-credit']);
-    return `<button type="button" class="lk-row" data-i="${i}"><div class="art ph" style="--c:${clothOf(g.title+'|'+ar)}"><span>${esc(initials(g.title))}</span>${DISC_SVG}<img alt="" loading="lazy" src="${caa(g.id)}" onerror="this.remove()"></div><span class="tx"><b>${esc(g.title)}</b><small>${esc([ar,y,sec].filter(Boolean).join(' · '))}</small></span><span class="tg">${esc(g['primary-type']||'Other')}</span></button>`;
+    const own=S.albums.some(a=>a.mbid===g.id),multi=!ED.id;
+    const ck=multi?(own?`<span class="lk-ck own"><b>Have it</b></span>`:`<span class="lk-ck"><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i></span>`):'';
+    return `<button type="button" class="lk-row ${SEL.has(g.id)?'sel':''}" data-i="${i}"><div class="art ph" style="--c:${clothOf(g.title+'|'+ar)}"><span>${esc(initials(g.title))}</span>${DISC_SVG}<img alt="" loading="lazy" src="${caa(g.id)}" onerror="this.remove()"></div><span class="tx"><b>${esc(g.title)}</b><small>${esc([ar,y,sec].filter(Boolean).join(' · '))}</small></span><span class="tg">${esc(g['primary-type']||'Other')}</span>${ck}</button>`;
   }).join('');
-  $('#lk-res').innerHTML=LK.length?`<div class="sr-sec">Results<span>${lkQ.count>LK.length?`${LK.length} of ${lkQ.count}`:LK.length}</span></div>${rows}${lkQ.count>LK.length?'<button type="button" class="lk-more" id="lk-more">Show more</button>':''}`:'';
+  const can=!ED.id&&LK.some(g=>!S.albums.some(a=>a.mbid===g.id));
+  $('#lk-res').innerHTML=LK.length?`<div class="sr-sec">Results · ${lkQ.count>LK.length?`${LK.length} of ${lkQ.count}`:LK.length}<span>${can?`<button type="button" id="lk-all">${LK.every(g=>SEL.has(g.id)||S.albums.some(a=>a.mbid===g.id))?'Select none':'Select all'}</button>`:''}</span></div>${rows}${lkQ.count>LK.length?'<button type="button" class="lk-more" id="lk-more">Show more</button>':''}`:'';
 }
 $('#lk-go').onclick=()=>lookup(false);
+function setLkType(t){S.ui.lkType=t;save();$$('#lk-type button').forEach(b=>b.classList.toggle('on',b.dataset.t===t))}
+$('#lk-type').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||BULK)return;setLkType(b.dataset.t);if(lkQ)lookup(false)});
 ['#lk-album','#lk-artist'].forEach(s=>$(s).addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();lookup(false)}}));
 $('#lk-res').addEventListener('click',async e=>{
   if(e.target.closest('#lk-more')){lookup(true);return}
-  const r=e.target.closest('.lk-row');if(!r||r.classList.contains('busy'))return;
+  if(e.target.closest('#lk-all')){const free=LK.filter(g=>!S.albums.some(a=>a.mbid===g.id));const all=free.every(g=>SEL.has(g.id));
+    free.forEach(g=>all?SEL.delete(g.id):SEL.add(g.id));renderLk();updBar();return}
+  const r=e.target.closest('.lk-row');if(!r||r.classList.contains('busy')||BULK)return;
+  const ck=e.target.closest('.lk-ck');
+  if(ck){if(ck.classList.contains('own'))return;const id=LK[+r.dataset.i].id;if(SEL.has(id))SEL.delete(id);else SEL.add(id);r.classList.toggle('sel',SEL.has(id));updBar();
+    const b=$('#lk-all');if(b)b.textContent=LK.every(g=>SEL.has(g.id)||S.albums.some(a=>a.mbid===g.id))?'Select none':'Select all';return}
   const g=LK[+r.dataset.i];r.classList.add('busy');const tg=r.querySelector('.tg'),was=tg.innerHTML;tg.innerHTML='<span class="spin"></span>';
-  try{await pickRG(g);$('#lk-res').innerHTML='';setLkSt(`Filled in from MusicBrainz. Check it over, then tap <b>${ED.id?'Save':'Add'}</b>.`);
+  try{await pickRG(g);$('#lk-res').innerHTML='';SEL.clear();updBar();setLkSt(`Filled in from MusicBrainz. Check it over, then tap <b>${ED.id?'Save':'Add'}</b>.`);
     $('#ed-page').scrollTo({top:0,behavior:'smooth'})}
   catch(err){tg.innerHTML=was;r.classList.remove('busy');setLkSt(`Couldn’t load that one (${esc(err.message)}). Try again.`,true)}
 });
 // a release group is the album in general; its releases are the editions. The tracklist comes from the
 // earliest official edition (the original), genres from the album and the edition
-async function pickRG(g){
+async function fetchAlbum(g){
   const rg=await mb(`release-group/${g.id}?inc=genres+tags+releases+artist-credits`);
   const rels=(rg.releases||[]).slice().sort((a,b)=>(a.status==='Official'?0:1)-(b.status==='Official'?0:1)||String(a.date||'9999').localeCompare(String(b.date||'9999')));
   let rel=null;
@@ -851,19 +884,45 @@ async function pickRG(g){
   (rel?.media||[]).forEach((m,mi)=>(m.tracks||[]).forEach(t=>tracks.push({t:t.title||t.recording?.title||'',len:Math.round((t.length||t.recording?.length||0)/1000),d:m.position||mi+1})));
   const gen=[...(rg.genres||[]),...(rel?.genres||[])].sort((a,b)=>(b.count||0)-(a.count||0));
   const tags=(rg.tags||[]).sort((a,b)=>(b.count||0)-(a.count||0));
-  const genre=(gen[0]?.name||tags[0]?.name||'').replace(/\b\p{L}/gu,c=>c.toUpperCase());
+  const cap=x=>x.replace(/\b\p{L}/gu,c=>c.toUpperCase());
+  const genre=normGenres((gen.length?gen:tags).filter(x=>(x.count||0)>0||gen.length).slice(0,3).map(x=>cap(x.name)).join(', '));   // up to three, most-voted first
   const label=(rel?.['label-info']||[]).map(x=>x.label?.name).filter(Boolean)[0]||'';
-  ED.title=rg.title||g.title;ED.artist=creditOf(rg['artist-credit']||g['artist-credit'])||ED.artist;
-  ED.year=(rg['first-release-date']||g['first-release-date']||'').slice(0,4);ED.genre=genre;ED.label=label;ED.tracks=tracks;ED.mbid=g.id;ED.arMbid=((rg['artist-credit']||g['artist-credit']||[])[0]||{}).artist?.id||'';
-  if(!(ED.typeTouched&&ED.type==='LP'))ED.type=mbType(rg['primary-type']||g['primary-type']);   // a chosen LP stays an LP
+  const out={title:rg.title||g.title,artist:creditOf(rg['artist-credit']||g['artist-credit']),year:(rg['first-release-date']||g['first-release-date']||'').slice(0,4),
+    genre,label,tracks,mbid:g.id,arMbid:((rg['artist-credit']||g['artist-credit']||[])[0]||{}).artist?.id||'',type:mbType(rg['primary-type']||g['primary-type'])};
   // the cover: kept in the app as a small picture so it shows offline; if that isn't allowed, linked instead
   let cover='';
   try{cover=await shrink(`https://coverartarchive.org/release-group/${g.id}/front-500`,500)}
   catch(_){try{if(rel)cover=await shrink(`https://coverartarchive.org/release/${rel.id}/front-500`,500)}catch(__){}}
   if(!cover&&await imgOk(caa(g.id)))cover=caa(g.id);
-  ED.cover=cover;
+  out.cover=cover;return out;
+}
+async function pickRG(g){
+  const x=await fetchAlbum(g),keepLP=(ED.typeTouched&&ED.type==='LP')||S.ui.lkType==='LP';
+  Object.assign(ED,x,{artist:x.artist||ED.artist,type:keepLP?'LP':x.type});   // LP chosen (or LPs filtered): it stays an LP
   $('#fc-title').dataset.tried='';$('#fc-artist').dataset.tried='';fillForm();
 }
+// several at once: each checked result is looked up in full and added, one after another
+const SEL=new Set();let BULK=false;
+function updBar(){const n=SEL.size;$('#lk-bar').hidden=!n&&!BULK;if(!BULK)$('#lk-addsel').textContent=`Add ${n} Selected`;$('#lk-addsel').disabled=BULK;$('#lk-clear').disabled=BULK}
+$('#lk-clear').onclick=()=>{SEL.clear();renderLk();updBar()};
+$('#lk-addsel').onclick=async()=>{
+  const picks=LK.filter(g=>SEL.has(g.id));if(!picks.length||BULK)return;
+  BULK=true;updBar();let ok=0,fail=0;const lp=S.ui.lkType==='LP';
+  for(const [n,g] of picks.entries()){
+    $('#lk-addsel').innerHTML=`<span class="spin"></span>&nbsp; Adding ${n+1} of ${picks.length}…`;
+    const row=$(`#lk-res .lk-row[data-i="${LK.indexOf(g)}"]`);
+    try{
+      if(S.albums.some(a=>a.mbid===g.id)){SEL.delete(g.id);continue}
+      const x=await fetchAlbum(g);
+      S.albums.push({id:uid(),added:Date.now(),...x,artist:x.artist||'Unknown Artist',type:lp?'LP':x.type,genre:normGenres(x.genre)});
+      SEL.delete(g.id);ok++;save();autoPhoto(x.artist||'Unknown Artist');
+      if(row){row.classList.remove('sel');row.classList.add('ok')}
+    }catch(e){fail++;if(row)row.classList.add('fail')}
+  }
+  BULK=false;render();
+  if(!fail){toast(`Added ${ok} release${ok===1?'':'s'}`);ED0=edSnap();closePage('#ed-page')}
+  else{renderLk();updBar();setLkSt(`Added ${ok}. ${fail} couldn’t be loaded and are still checked — tap Add Selected to try them again.`,true)}
+};
 function imgOk(src){return new Promise(ok=>{const im=new Image();im.onload=()=>ok(true);im.onerror=()=>ok(false);im.src=src;setTimeout(()=>ok(false),8000)})}
 
 /* ================= artist photos: Deezer first, then Wikimedia Commons (through MusicBrainz → Wikidata) ================= */
