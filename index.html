@@ -779,7 +779,7 @@ function renderData(){
     <div class="row2"><button type="button" class="card-btn ink" id="dt-exp">Save Backup</button><button type="button" class="card-btn" id="dt-imp">Import Backup</button></div>
     <div class="note">Everything is stored in this browser on this device. Save a backup to keep a copy or move it to another device. Importing adds the albums in the backup and updates ones you already have; nothing is removed.</div>
     <div class="list-divider sm"><span>About</span></div>
-    <div class="note">Album details from <a href="https://musicbrainz.org" target="_blank" rel="noopener">MusicBrainz</a>, covers from the <a href="https://coverartarchive.org" target="_blank" rel="noopener">Cover Art Archive</a>. Both are free and need no account.</div>`;
+    <div class="note">Album details from <a href="https://musicbrainz.org" target="_blank" rel="noopener">MusicBrainz</a>, covers from the <a href="https://coverartarchive.org" target="_blank" rel="noopener">Cover Art Archive</a>, artist photos from <a href="https://www.deezer.com" target="_blank" rel="noopener">Deezer</a>, <a href="https://www.theaudiodb.com" target="_blank" rel="noopener">TheAudioDB</a> and <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a>, and previews from Deezer. All free, none need an account.</div>`;
   $('#dt-exp').onclick=exportBackup;$('#dt-imp').onclick=()=>$('#imp-file').click();
 }
 
@@ -1132,7 +1132,7 @@ $('#lk-addsel').onclick=async()=>{
 };
 function imgOk(src){return new Promise(ok=>{const im=new Image();im.onload=()=>ok(true);im.onerror=()=>ok(false);im.src=src;setTimeout(()=>ok(false),8000)})}
 
-/* ================= artist photos: Deezer first, then Wikimedia Commons (through MusicBrainz → Wikidata) ================= */
+/* ================= artist photos: Deezer first, then TheAudioDB, then Wikimedia Commons (through MusicBrainz → Wikidata) ================= */
 // Deezer's API only lets a web page read it as JSONP (a script tag), so that's how it's asked
 function jsonp(url,ms=9000){return new Promise((ok,no)=>{
   const cb='__dz'+Math.random().toString(36).slice(2),sc=document.createElement('script');
@@ -1152,6 +1152,24 @@ async function artistMbid(name){
   const own=S.albums.find(a=>akey(a.artist)===akey(name)&&a.arMbid);if(own)return own.arMbid;
   const j=await mb(`artist/?query=${encodeURIComponent('artist:"'+name.replace(/"/g,'')+'"')}&limit=3`);
   const hit=(j.artists||[]).find(a=>nameNorm(a.name)===nameNorm(name)&&a.score>=90);return hit?hit.id:'';
+}
+// TheAudioDB: free with its shared public key "123" (no sign-up), 30 requests a minute, so calls are spaced 2.1s apart.
+// Looked up by the artist's MusicBrainz ID when we have it (exact), otherwise by name (exact matches only)
+const ADB='https://www.theaudiodb.com/api/v1/json/123/';let adbAt=0,adbChain=Promise.resolve();
+function adb(path){const run=async()=>{const w=adbAt+2100-Date.now();if(w>0)await sleep(w);adbAt=Date.now();
+  const r=await fetch(ADB+path);if(!r.ok)throw new Error('TheAudioDB said '+r.status);return r.json()};
+  const p=adbChain.then(run,run);adbChain=p.catch(()=>{});return p}
+async function adbPhotos(name){
+  let id='';try{id=await artistMbid(name)}catch(_){}
+  let list=[];
+  if(id){const j=await adb(`artist-mb.php?i=${encodeURIComponent(id)}`);list=j.artists||[]}
+  if(!list.length){const j=await adb(`search.php?s=${encodeURIComponent(name)}`);list=(j.artists||[]).filter(a=>nameNorm(a.strArtist)===nameNorm(name))}
+  const out=[];
+  for(const a of list){
+    for(const [k,lab] of [['strArtistThumb','photo'],['strArtistWideThumb','wide photo'],['strArtistCutout','cutout']]){
+      if(a[k])out.push({name:a.strArtist,url:a[k],thumb:a[k]+'/preview',note:`TheAudioDB · ${lab}${a.strCountry?' · '+a.strCountry:''}`,src:'TheAudioDB'})}
+  }
+  return out;
 }
 async function wikiPhoto(name){
   const id=await artistMbid(name);if(!id)return null;
@@ -1173,6 +1191,7 @@ function autoPhoto(name){
   phChain=phChain.then(async()=>{
     e.tried=Date.now();
     try{const pick=(await deezerArtists(name)).find(x=>nameNorm(x.name)===nameNorm(name));if(pick){e.photo=await keepPhoto(pick.url);e.src='Deezer'}}catch(_){}
+    if(!e.photo){try{const a=(await adbPhotos(name))[0];if(a){e.photo=await keepPhoto(a.url);e.src=a.src}}catch(_){}}
     if(!e.photo){try{const w=await wikiPhoto(name);if(w){e.photo=await keepPhoto(w.url);e.src=w.src}}catch(_){}}
     save();if(e.photo){render();if(stack.includes('#ar-page')&&akey(arName)===k)renderArtist()}
   }).catch(()=>{});
@@ -1271,10 +1290,10 @@ function pvNote(a){
 let PH=[];
 async function findPhotos(){
   const name=arName,st=$('#ph-st');st.hidden=false;st.classList.remove('err');st.innerHTML='<span class="spin"></span>&nbsp; Looking for photos…';$('#ph-res').innerHTML='';
-  const [dz,wk]=await Promise.allSettled([deezerArtists(name),wikiPhoto(name)]);
+  const [dz,ad,wk]=await Promise.allSettled([deezerArtists(name),adbPhotos(name),wikiPhoto(name)]);
   if(name!==arName)return;
-  PH=[...(wk.status==='fulfilled'&&wk.value?[wk.value]:[]),...(dz.status==='fulfilled'?dz.value:[])];
-  if(!PH.length){st.classList.add('err');st.textContent=dz.status==='rejected'&&wk.status==='rejected'?'Couldn’t reach Deezer or MusicBrainz. Try again in a moment.':'No photos found. You can choose one of your own.';return}
+  PH=[...(ad.status==='fulfilled'?ad.value:[]),...(wk.status==='fulfilled'&&wk.value?[wk.value]:[]),...(dz.status==='fulfilled'?dz.value:[])];
+  if(!PH.length){st.classList.add('err');st.textContent=[dz,ad,wk].every(x=>x.status==='rejected')?'Couldn’t reach Deezer, TheAudioDB or MusicBrainz. Try again in a moment.':'No photos found. You can choose one of your own.';return}
   st.hidden=true;
   $('#ph-res').innerHTML=`<div class="sr-sec">Pick a photo<span>${PH.length}</span></div>`+PH.map((x,i)=>`<button type="button" class="lk-row ph-row" data-i="${i}"><div class="art ph" style="--c:${clothOf('artist|'+x.name)}"><span>${esc(initials(x.name))}</span><img alt="" loading="lazy" src="${esc(x.thumb)}" onerror="this.remove()"></div><span class="tx"><b>${esc(x.name)}</b><small>${esc(x.note)}</small></span><span class="tg">Use</span></button>`).join('');
 }
