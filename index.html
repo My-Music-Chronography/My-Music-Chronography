@@ -124,6 +124,31 @@
     font:700 1.05rem/1 Georgia,serif;}
   .art-card .cnt small{font:700 .46rem Arial,sans-serif; letter-spacing:.6px; color:var(--muted); text-transform:uppercase; margin-top:3px;}
   .art-card:active{filter:brightness(.96);}
+  .art.photo{background-color:var(--unread);}
+
+  /* ---- the main window: one card per artist; tap it and their albums drop down, oldest first ---- */
+  .ac{background:var(--panel); border:3px solid #000; border-radius:8px; overflow:hidden;}
+  .ac-head{display:flex; align-items:stretch; height:70px; cursor:pointer; user-select:none;}
+  .ac-head:active{filter:brightness(.96);}
+  .ac-head .art{width:64px; --sz:64px; border-right:3px solid #000;}
+  .ac-head .main{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:0 10px; line-height:1.15;}
+  .ac-head .t{font-size:1rem;}
+  .ac-head .cnt{flex:none; width:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; border-left:3px solid #000; background:var(--unread);
+    font:700 1.05rem/1 Georgia,serif; transition:background .2s, color .2s;}
+  .ac-head .cnt svg{width:12px; height:12px; display:block; transition:transform .25s;}
+  .ac.open .ac-head .cnt{background:var(--ink); color:#fff;}
+  .ac.open .ac-head .cnt svg{transform:rotate(180deg);} .ac.open .ac-head .cnt polygon{fill:#fff; stroke:#fff;}
+  .ac-drop{display:grid; grid-template-rows:0fr; transition:grid-template-rows .28s ease;}
+  .ac.open .ac-drop{grid-template-rows:1fr;}
+  .ac-in{min-height:0; overflow:hidden;}
+  .ac-list{display:flex; flex-direction:column; gap:4px; padding:4px; border-top:3px solid #000; background:var(--unread);}
+  .ac-list .alb{height:56px;} .ac-list .alb .art{width:56px; --sz:56px;}
+  .ac-page{height:30px; margin:0; border:3px solid #000; border-radius:6px; background:#fff; font:700 .62rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--ink);}
+  .ac-page:active{background:var(--bg);}
+  @media (prefers-reduced-motion:reduce){ .ac-drop{transition:none;} }
+  /* the artist window: their photo, and where it came from */
+  .ph-btns{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px;}
+  .ph-src{font:700 .5rem Arial,sans-serif; letter-spacing:.7px; text-transform:uppercase; color:var(--muted);}
 
   /* ---- full-window pages (sort, add/edit, album, artist, artist list) ---- */
   .page{position:fixed; inset:0; z-index:40; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch;
@@ -259,8 +284,8 @@
 
 <div id="app-header">
   <div id="tabs">
-    <div class="tab active" data-tab="library" style="--cloth:#7a2f2b">Library</div>
-    <div class="tab" data-tab="artists" style="--cloth:#2b5752">Artists</div>
+    <div class="tab active" data-tab="artists" style="--cloth:#7a2f2b">Artists</div>
+    <div class="tab" data-tab="library" style="--cloth:#2b5752">Albums</div>
     <div class="tab" data-tab="data" style="--cloth:#8a6a3f">Data</div>
   </div>
   <div class="hdr-row" id="row2">
@@ -341,6 +366,7 @@
   </div>
 </div>
 
+<input type="file" id="ar-file" accept="image/*" hidden>
 <input type="file" id="imp-file" accept="application/json,.json" hidden>
 <div class="toast" id="toast"></div>
 
@@ -371,7 +397,11 @@ function artHTML(a,extra='',st=''){
   if(a.cover)return `<div class="art ${extra}" style="${st}background-image:url('${a.cover.replace(/'/g,'%27')}')"></div>`;
   return `<div class="art ph ${extra}" style="${st}--c:${clothOf((a.title||'')+'|'+(a.artist||''))}"><span>${esc(initials(a.title))}</span>${DISC_SVG}</div>`;
 }
-function artistArt(name){return `<div class="art ph" style="--c:${clothOf('artist|'+name)}"><span>${esc(initials(name))}</span>${DISC_SVG}</div>`}
+const akey=n=>String(n||'Unknown Artist').trim().toLowerCase();
+function artistArt(name){
+  const e=S.artists[akey(name)];
+  if(e&&e.photo)return `<div class="art photo" style="background-image:url('${e.photo.replace(/'/g,'%27')}')"></div>`;
+  return `<div class="art ph" style="--c:${clothOf('artist|'+name)}"><span>${esc(initials(name))}</span>${DISC_SVG}</div>`}
 // lengths in seconds; written m:ss, or h:mm:ss past an hour
 function fmtLen(s){s=Math.round(s||0);if(!s)return '';const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${x}`:`${m}:${x}`}
 function fmtLong(s){s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.round(s%3600/60);return h?`${h}h ${m}m`:`${m}m`}
@@ -390,7 +420,7 @@ const Store={
   set(v){if(!this.db){try{localStorage.setItem(KEY,JSON.stringify(v))}catch(e){toast('Couldn’t save: storage is full')}return}
     this.db.transaction('kv','readwrite').objectStore('kv').put(v,'state')}
 };
-const S={albums:[], ui:{tab:'library', lib:{sort:'added',dir:-1,filter:'All'}, art:{sort:'name',dir:1,filter:'All'}}};
+const S={albums:[], artists:{}, ui:{tab:'artists', open:[], lib:{sort:'added',dir:-1,filter:'All'}, art:{sort:'name',dir:1,filter:'All'}}};
 let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>Store.set(JSON.parse(JSON.stringify(S))),150)}
 
 /* ================= header / footer sizes ================= */
@@ -470,12 +500,12 @@ function renderSf(){
   $('#sf-filter').textContent=u.filter==='All'?'All':TYPE_PL[u.filter];
   $('#sf-sort').textContent=(list.find(s=>s.k===u.sort)||list[0]).n;
   $('#sf-dir').classList.toggle('up',u.dir===(list.find(s=>s.k===u.sort)||list[0]).def);
-  $('#sfq').placeholder=t==='library'?'Titles, artists, genres, songs':'Artist name';
+  $('#sfq').placeholder='Artists, titles, genres, songs';
 }
-function albRow(a,hit){
+function albRow(a,hit,own){   // own: shown under its artist already, so the artist line is left off
   const len=total(a),n=(a.tracks||[]).length;
   const meta=[a.year,a.genre,n?`${n} track${n===1?'':'s'}`:'',len?fmtLen(len):''].filter(Boolean).join(' · ');
-  return `<div class="alb" data-id="${a.id}">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div><div class="a">${esc(a.artist||'Unknown Artist')}</div>${hit?`<div class="hit">♪ ${esc(hit)}</div>`:`<div class="m">${esc(meta)||'&nbsp;'}</div>`}</div><div class="ty" style="--tc:${TYPE_C[a.type]}"><span>${esc(a.type)}</span></div></div>`;
+  return `<div class="alb" data-id="${a.id}">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div>${own?'':`<div class="a">${esc(a.artist||'Unknown Artist')}</div>`}${hit?`<div class="hit">♪ ${esc(hit)}</div>`:`<div class="m">${esc(meta)||'&nbsp;'}</div>`}</div><div class="ty" style="--tc:${TYPE_C[a.type]}"><span>${esc(a.type)}</span></div></div>`;
 }
 function renderLib(){
   const u=S.ui.lib,q=Q.trim().toLowerCase();
@@ -487,9 +517,17 @@ function renderLib(){
   else if(!list.length)h=`<div class="empty">Nothing matches${q?` “${esc(Q.trim())}”`:''}${u.filter!=='All'?` in ${TYPE_PL[u.filter]}`:''}.</div>`;
   $('#app').innerHTML=h;
 }
+const TRI_DN='<svg viewBox="0 0 40 40"><polygon points="10.4,11 29.6,11 20,27.6" fill="#000" stroke="#000" stroke-width="5" stroke-linejoin="round"/></svg>';
+const byYear=(a,b)=>(yr(a)||9999)-(yr(b)||9999)||sortKey(a.title).localeCompare(sortKey(b.title));
 function renderArtists(){
-  const u=S.ui.art,q=Q.trim().toLowerCase();
-  let list=[...artistMap().values()].filter(x=>(u.filter==='All'||x.albums.some(a=>a.type===u.filter))&&(!q||x.name.toLowerCase().includes(q)));
+  const u=S.ui.art,q=Q.trim().toLowerCase(),open=new Set(S.ui.open||[]);
+  // while searching: artists whose name matches show all their albums; otherwise only the albums that match
+  let list=[...artistMap().values()].map(x=>{
+    const typed=x.albums.filter(a=>u.filter==='All'||a.type===u.filter);
+    const nameHit=!q||x.name.toLowerCase().includes(q);
+    const shown=nameHit?typed.map(a=>({a})):typed.map(a=>({a,m:matchAlb(a,q)})).filter(y=>y.m.ok).map(y=>({a:y.a,hit:y.m.track}));
+    return{...x,shown,nameHit};
+  }).filter(x=>x.shown.length);
   const N=(a,b)=>sortKey(a.name).localeCompare(sortKey(b.name));
   const c={name:N,count:(a,b)=>a.albums.length-b.albums.length||-N(a,b)*u.dir,
     length:(a,b)=>a.albums.reduce((t,x)=>t+total(x),0)-b.albums.reduce((t,x)=>t+total(x),0)||-N(a,b)*u.dir,
@@ -498,11 +536,13 @@ function renderArtists(){
   let h='',last=null;
   for(const x of list){
     if(u.sort==='name'){const L=(sortKey(x.name)[0]||'#').toUpperCase(),g=/[A-Z]/.test(L)?L:'#';if(g!==last){h+=`<div class="list-divider"><span>${g}</span></div>`;last=g}}
-    const len=x.albums.reduce((t,a)=>t+total(a),0);
-    h+=`<div class="art-card" data-artist="${esc(x.name)}">${artistArt(x.name)}<div class="main"><div class="t">${esc(x.name)}</div><div class="m">${esc(typeCounts(x.albums))}${len?' · '+fmtLong(len):''}</div></div><div class="cnt">${x.albums.length}<small>${x.albums.length===1?'Release':'Releases'}</small></div></div>`;
+    const len=x.albums.reduce((t,a)=>t+total(a),0),k=akey(x.name),isOpen=open.has(k)||(q&&!x.nameHit);
+    const rows=x.shown.sort((p,r)=>byYear(p.a,r.a)).map(y=>albRow(y.a,y.hit,true)).join('');
+    h+=`<div class="ac ${isOpen?'open':''}" data-k="${esc(k)}" data-artist="${esc(x.name)}"><div class="ac-head">${artistArt(x.name)}<div class="main"><div class="t">${esc(x.name)}</div><div class="m">${esc(typeCounts(x.albums))}${len?' · '+fmtLong(len):''}</div></div><div class="cnt">${x.shown.length}${TRI_DN}</div></div>
+      <div class="ac-drop"><div class="ac-in"><div class="ac-list">${rows}<button type="button" class="ac-page">Artist Page</button></div></div></div></div>`;
   }
-  if(!S.albums.length)h=`<div class="empty">No artists yet.<br>They show up here as you add albums.</div>`;
-  else if(!list.length)h=`<div class="empty">No artists match${q?` “${esc(Q.trim())}”`:''}.</div>`;
+  if(!S.albums.length)h=`<div class="empty">Your collection is empty.<br>Tap <b>Add New Album</b> to look one up.</div>`;
+  else if(!list.length)h=`<div class="empty">Nothing matches${q?` “${esc(Q.trim())}”`:''}${u.filter!=='All'?` in ${TYPE_PL[u.filter]}`:''}.</div>`;
   $('#app').innerHTML=h;
 }
 function renderData(){
@@ -594,26 +634,43 @@ function renderArtist(){
   arName=x.name;$('#ar-title').textContent=x.name;$('#ar-ren').textContent=arRen?'Cancel':'Rename';
   const list=[...x.albums].sort(cmpAlb('type'));
   const len=list.reduce((t,a)=>t+total(a),0),ys=list.map(yr).filter(Boolean);
-  let h=arRen?`<div class="tg-new"><div class="fc"><label for="ar-new">Artist name</label><input id="ar-new" autocomplete="off" value="${esc(x.name)}" enterkeyhint="done"></div><button type="button" class="card-btn ink" id="ar-save">Save</button></div><div class="note">Renames the artist on all ${list.length} of their releases. Use a name you already have to merge them.</div>`:'';
+  const e=S.artists[akey(x.name)]||{};
+  let h=`<div class="show-head">${artistArt(x.name)}<div class="main"><div class="t">${esc(x.name)}</div><div class="m">${esc(typeCounts(list))}</div>${e.photo&&e.src?`<div class="ph-src">Photo: ${esc(e.src)}</div>`:''}</div></div>
+    <div class="ph-btns"><button type="button" class="card-btn" id="ph-find">Find Photo</button><button type="button" class="card-btn" id="ph-pick">Choose Photo</button><button type="button" class="card-btn" id="ph-none" ${e.photo?'':'disabled'}>No Photo</button></div>
+    <div class="lk-st" id="ph-st" hidden></div><div class="sr-list" id="ph-res"></div>`;
+  h+=arRen?`<div class="tg-new"><div class="fc"><label for="ar-new">Artist name</label><input id="ar-new" autocomplete="off" value="${esc(x.name)}" enterkeyhint="done"></div><button type="button" class="card-btn ink" id="ar-save">Save</button></div><div class="note">Renames the artist on all ${list.length} of their releases. Use a name you already have to merge them.</div>`:'';
   h+=`<div class="stats three"><div><b>${list.length}</b><small>Releases</small></div><div><b>${len?fmtLong(len):'—'}</b><small>Of Music</small></div><div><b>${ys.length?(Math.min(...ys)===Math.max(...ys)?Math.min(...ys):Math.min(...ys)+'–'+String(Math.max(...ys)).slice(-2)):'—'}</b><small>Years</small></div></div>`;
   let last=null;
-  for(const a of list){if(a.type!==last){h+=`<div class="list-divider"><span>${TYPE_PL[a.type]}</span></div>`;last=a.type}h+=albRow(a)}
+  for(const a of list){if(a.type!==last){h+=`<div class="list-divider"><span>${TYPE_PL[a.type]}</span></div>`;last=a.type}h+=albRow(a,null,true)}
   $('#ar-body').innerHTML=h;
+  $('#ph-find').onclick=findPhotos;$('#ph-pick').onclick=()=>$('#ar-file').click();
+  $('#ph-none').onclick=()=>{const k=akey(arName);S.artists[k]={...(S.artists[k]||{}),photo:'',src:'',none:true};save();renderArtist();render()};
   if(arRen){const i=$('#ar-new');i.focus();i.onkeydown=e=>{if(e.key==='Enter')renameArtist()};$('#ar-save').onclick=renameArtist}
 }
 function renameArtist(){
   const nv=$('#ar-new').value.trim();if(!nv)return;
-  const k=arName.toLowerCase();S.albums.forEach(a=>{if((a.artist||'Unknown Artist').trim().toLowerCase()===k)a.artist=nv});
+  const k=arName.toLowerCase(),nk=akey(nv);S.albums.forEach(a=>{if((a.artist||'Unknown Artist').trim().toLowerCase()===k)a.artist=nv});
+  if(k!==nk&&S.artists[k]){if(!(S.artists[nk]&&S.artists[nk].photo))S.artists[nk]=S.artists[k];delete S.artists[k]}
+  S.ui.open=(S.ui.open||[]).map(x=>x===k?nk:x);
   arName=nv;arRen=false;save();renderArtist();render();if(stack.includes('#al-page'))renderAlbum();toast('Artist renamed');
 }
 $('#ar-ren').onclick=()=>{arRen=!arRen;renderArtist()};
 $('#ar-back').onclick=()=>closePage('#ar-page');
-$('#ar-body').addEventListener('click',e=>{const r=e.target.closest('.alb');if(r)openAlbum(r.dataset.id)});
+$('#ar-body').addEventListener('click',async e=>{const r=e.target.closest('.alb');if(r){openAlbum(r.dataset.id);return}
+  const c=e.target.closest('.ph-row');if(!c)return;const k=akey(arName),pk=PH[+c.dataset.i];
+  c.querySelector('.tg').innerHTML='<span class="spin"></span>';
+  S.artists[k]={...(S.artists[k]||{}),photo:await keepPhoto(pk.url),src:pk.src,none:false};save();renderArtist();render();toast('Photo set')});
+$('#ar-file').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const k=akey(arName);S.artists[k]={...(S.artists[k]||{}),photo:await shrink(URL.createObjectURL(f),500),src:'Your photo',none:false};save();renderArtist();render()}
+  catch(_){toast('Couldn’t open that picture')}});
 
 /* ---- main list taps ---- */
 $('#app').addEventListener('click',e=>{
   const r=e.target.closest('.alb');if(r){openAlbum(r.dataset.id);return}
-  const c=e.target.closest('.art-card');if(c)openArtist(c.dataset.artist);
+  const ac=e.target.closest('.ac');if(!ac)return;
+  if(e.target.closest('.ac-page')||e.target.closest('.ac-head .art')){openArtist(ac.dataset.artist);return}
+  if(e.target.closest('.ac-head')){const k=ac.dataset.k,o=new Set(S.ui.open||[]);
+    if(ac.classList.toggle('open'))o.add(k);else o.delete(k);S.ui.open=[...o];save()}
 });
 $$('#tabs .tab').forEach(t=>t.onclick=()=>{if(S.ui.tab!==t.dataset.tab)setTab(t.dataset.tab)});
 $('#add-card').onclick=()=>openEditor(null);
@@ -692,6 +749,7 @@ $('#ed-save').onclick=()=>{
   else{a.id=uid();a.added=Date.now();S.albums.push(a);toast(`Added “${a.title}”`)}
   ED0=edSnap();save();render();closePage('#ed-page');
   if(stack.includes('#al-page'))renderAlbum();if(stack.includes('#ar-page'))renderArtist();
+  autoPhoto(a.artist);
 };
 let delT;$('#ed-del').onclick=()=>{const b=$('#ed-del');
   if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Tap again to delete';clearTimeout(delT);delT=setTimeout(()=>{b.classList.remove('armed');b.textContent='Delete Album'},3000);return}
@@ -783,7 +841,7 @@ async function pickRG(g){
   const genre=(gen[0]?.name||tags[0]?.name||'').replace(/\b\p{L}/gu,c=>c.toUpperCase());
   const label=(rel?.['label-info']||[]).map(x=>x.label?.name).filter(Boolean)[0]||'';
   ED.title=rg.title||g.title;ED.artist=creditOf(rg['artist-credit']||g['artist-credit'])||ED.artist;
-  ED.year=(rg['first-release-date']||g['first-release-date']||'').slice(0,4);ED.genre=genre;ED.label=label;ED.tracks=tracks;ED.mbid=g.id;
+  ED.year=(rg['first-release-date']||g['first-release-date']||'').slice(0,4);ED.genre=genre;ED.label=label;ED.tracks=tracks;ED.mbid=g.id;ED.arMbid=((rg['artist-credit']||g['artist-credit']||[])[0]||{}).artist?.id||'';
   if(!(ED.typeTouched&&ED.type==='LP'))ED.type=mbType(rg['primary-type']||g['primary-type']);   // a chosen LP stays an LP
   // the cover: kept in the app as a small picture so it shows offline; if that isn't allowed, linked instead
   let cover='';
@@ -795,9 +853,65 @@ async function pickRG(g){
 }
 function imgOk(src){return new Promise(ok=>{const im=new Image();im.onload=()=>ok(true);im.onerror=()=>ok(false);im.src=src;setTimeout(()=>ok(false),8000)})}
 
+/* ================= artist photos: Deezer first, then Wikimedia Commons (through MusicBrainz → Wikidata) ================= */
+// Deezer's API only lets a web page read it as JSONP (a script tag), so that's how it's asked
+function jsonp(url,ms=9000){return new Promise((ok,no)=>{
+  const cb='__dz'+Math.random().toString(36).slice(2),sc=document.createElement('script');
+  const done=()=>{clearTimeout(t);try{delete window[cb]}catch(_){window[cb]=undefined}sc.remove()};
+  const t=setTimeout(()=>{done();no(new Error('no answer'))},ms);
+  window[cb]=d=>{done();ok(d)};sc.onerror=()=>{done();no(new Error('blocked'))};
+  sc.src=url+(url.includes('?')?'&':'?')+'output=jsonp&callback='+cb;document.head.appendChild(sc)})}
+const nameNorm=s=>String(s||'').toLowerCase().replace(ART_RE,'').replace(/&/g,'and').replace(/[^\p{L}\p{N}]/gu,'');
+async function deezerArtists(name){
+  const d=await jsonp(`https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=10`);
+  if(d&&d.error)throw new Error(d.error.message||'Deezer error');
+  return (d.data||[]).filter(a=>a.picture_medium&&!/\/images\/artist\/\//.test(a.picture_medium))
+    .map(a=>({name:a.name,url:a.picture_xl||a.picture_big||a.picture_medium,thumb:a.picture_medium,
+      note:`Deezer${a.nb_fan?' · '+Number(a.nb_fan).toLocaleString()+' fans':''}${a.nb_album?' · '+a.nb_album+' albums':''}`,src:'Deezer'}));
+}
+async function artistMbid(name){
+  const own=S.albums.find(a=>akey(a.artist)===akey(name)&&a.arMbid);if(own)return own.arMbid;
+  const j=await mb(`artist/?query=${encodeURIComponent('artist:"'+name.replace(/"/g,'')+'"')}&limit=3`);
+  const hit=(j.artists||[]).find(a=>nameNorm(a.name)===nameNorm(name)&&a.score>=90);return hit?hit.id:'';
+}
+async function wikiPhoto(name){
+  const id=await artistMbid(name);if(!id)return null;
+  const a=await mb(`artist/${id}?inc=url-rels`);
+  const w=(a.relations||[]).find(r=>r.type==='wikidata');if(!w)return null;
+  const q=w.url.resource.split('/').pop();
+  const r=await fetch(`https://www.wikidata.org/w/api.php?action=wbgetclaims&entity=${q}&property=P18&format=json&origin=*`);
+  const f=(await r.json()).claims?.P18?.[0]?.mainsnak?.datavalue?.value;if(!f)return null;
+  const url=`https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(f.replace(/ /g,'_'))}?width=500`;
+  return{name:a.name,url,thumb:url.replace('width=500','width=120'),note:'Wikimedia Commons',src:'Wikimedia Commons'};
+}
+// kept inside the app as a small picture so it shows offline; linked instead if the host won't allow that
+async function keepPhoto(url){try{return await shrink(url,500)}catch(_){return url}}
+// a new artist gets a photo by itself, but only on an exact name match; otherwise Find Photo on their page
+let phChain=Promise.resolve();
+function autoPhoto(name){
+  const k=akey(name),e=S.artists[k]||(S.artists[k]={});
+  if(e.photo||e.none||(e.tried&&Date.now()-e.tried<7*864e5))return;
+  phChain=phChain.then(async()=>{
+    e.tried=Date.now();
+    try{const pick=(await deezerArtists(name)).find(x=>nameNorm(x.name)===nameNorm(name));if(pick){e.photo=await keepPhoto(pick.url);e.src='Deezer'}}catch(_){}
+    if(!e.photo){try{const w=await wikiPhoto(name);if(w){e.photo=await keepPhoto(w.url);e.src=w.src}}catch(_){}}
+    save();if(e.photo){render();if(stack.includes('#ar-page')&&akey(arName)===k)renderArtist()}
+  }).catch(()=>{});
+}
+let PH=[];
+async function findPhotos(){
+  const name=arName,st=$('#ph-st');st.hidden=false;st.classList.remove('err');st.innerHTML='<span class="spin"></span>&nbsp; Looking for photos…';$('#ph-res').innerHTML='';
+  const [dz,wk]=await Promise.allSettled([deezerArtists(name),wikiPhoto(name)]);
+  if(name!==arName)return;
+  PH=[...(wk.status==='fulfilled'&&wk.value?[wk.value]:[]),...(dz.status==='fulfilled'?dz.value:[])];
+  if(!PH.length){st.classList.add('err');st.textContent=dz.status==='rejected'&&wk.status==='rejected'?'Couldn’t reach Deezer or MusicBrainz. Try again in a moment.':'No photos found. You can choose one of your own.';return}
+  st.hidden=true;
+  $('#ph-res').innerHTML=`<div class="sr-sec">Pick a photo<span>${PH.length}</span></div>`+PH.map((x,i)=>`<button type="button" class="lk-row ph-row" data-i="${i}"><div class="art ph" style="--c:${clothOf('artist|'+x.name)}"><span>${esc(initials(x.name))}</span><img alt="" loading="lazy" src="${esc(x.thumb)}" onerror="this.remove()"></div><span class="tx"><b>${esc(x.name)}</b><small>${esc(x.note)}</small></span><span class="tg">Use</span></button>`).join('');
+}
+
 /* ================= backup ================= */
 async function exportBackup(){
-  const data=JSON.stringify({app:'my-music-chronography',v:1,saved:new Date().toISOString(),albums:S.albums});
+  const data=JSON.stringify({app:'my-music-chronography',v:2,saved:new Date().toISOString(),albums:S.albums,artists:S.artists});
   const name=`my-music-chronography-backup-${new Date().toISOString().slice(0,10)}.json`;
   const file=new File([data],name,{type:'application/json'});
   if(navigator.canShare&&navigator.canShare({files:[file]})&&/Android|iPhone|iPad/i.test(navigator.userAgent)){
@@ -809,6 +923,7 @@ $('#imp-file').addEventListener('change',async e=>{const f=e.target.files[0];e.t
   try{const j=JSON.parse(await f.text());const list=Array.isArray(j)?j:j.albums;if(!Array.isArray(list))throw 0;
     let add=0,upd=0;for(const a of list){if(!a||!a.title)continue;a.type=TYPES.includes(a.type)?a.type:'Album';a.tracks=Array.isArray(a.tracks)?a.tracks:[];a.added=a.added||Date.now();a.id=a.id||uid();
       const i=S.albums.findIndex(x=>x.id===a.id);if(i>-1){S.albums[i]=a;upd++}else{S.albums.push(a);add++}}
+    if(j.artists&&typeof j.artists==='object')for(const [k,v] of Object.entries(j.artists))if(v&&v.photo&&!(S.artists[k]&&S.artists[k].photo))S.artists[k]=v;
     save();render();toast(`Imported: ${add} added, ${upd} updated`)}
   catch(_){toast('That file isn’t a My Music Chronography backup')}});
 
@@ -816,8 +931,9 @@ $('#imp-file').addEventListener('change',async e=>{const f=e.target.files[0];e.t
 (async()=>{
   await Store.open();
   const d=await Store.get();
-  if(d&&Array.isArray(d.albums)){S.albums=d.albums;if(d.ui)S.ui={...S.ui,...d.ui,lib:{...S.ui.lib,...d.ui.lib},art:{...S.ui.art,...d.ui.art}}}
-  setTab(S.ui.tab||'library');
+  if(d&&Array.isArray(d.albums)){S.albums=d.albums;S.artists=d.artists||{};if(d.ui)S.ui={...S.ui,...d.ui,lib:{...S.ui.lib,...d.ui.lib},art:{...S.ui.art,...d.ui.art}}}
+  setTab(['artists','library','data'].includes(S.ui.tab)?S.ui.tab:'artists');
+  for(const x of artistMap().values())autoPhoto(x.name);   // any artist still without a photo (tried at most once a week)
   if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
