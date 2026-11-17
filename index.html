@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Music Chronography</title>
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="My Music Chronography">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root{
+    --bg:#efeadf; --ink:#2b2620; --muted:#8a8378; --panel:#ffffff; --unread:#e3ddce; --red:#aa3333;
+    --band:#6b4a32; --hdr-cell:#d9d0be;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{overscroll-behavior-y:none;}
+  body{margin:0; font-family:Georgia,'Times New Roman',serif; background:var(--bg); color:var(--ink); min-height:100vh;
+    padding:calc(var(--header-h,90px) + 4px) 4px calc(var(--footer-h,60px) + 4px);}
+  body.no-foot{padding-bottom:calc(16px + env(safe-area-inset-bottom));}
+  button,input,select{font:inherit; color:inherit;}
+  button{cursor:pointer;}
+  #app{max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:4px;}
+
+  /* ---- frozen header: page tabs, then the search + sort/filter card ---- */
+  #app-header{position:fixed; top:0; left:0; right:0; z-index:9; display:flex; flex-direction:column; gap:4px;
+    padding:0 0 4px; background:var(--band); border-top:3px solid #000; border-bottom:3px solid #000;}
+  #app-header.bare{padding-bottom:0;}
+  #tabs{display:flex; gap:4px; padding:calc(4px + env(safe-area-inset-top)) 4px 4px; background:var(--ink); border-bottom:3px solid #000;}
+  #app-header.bare #tabs{border-bottom:none;}
+  #tabs .tab{flex:1 1 0; height:34px; display:flex; align-items:center; justify-content:center; border:2.5px solid #000; border-radius:6px;
+    background:#fff; color:var(--ink); font:700 min(.74rem, 2.95vw)/1.1 Arial,sans-serif; text-transform:uppercase; cursor:pointer; user-select:none;}
+  #tabs .tab.active{background:var(--cloth); color:#fff;}
+  .hdr-row{display:flex; gap:4px; margin:0 4px;}
+  .hdr-row[hidden]{display:none;}
+  #app-header::after, #app-footer::before{content:''; position:absolute; left:0; right:0; height:16px; pointer-events:none;}
+  #app-header::after{top:100%; margin-top:1px; background:linear-gradient(180deg, rgba(0,0,0,.32), rgba(0,0,0,.12) 40%, rgba(0,0,0,0));}
+  #app-footer::before{bottom:100%; margin-bottom:1px; background:linear-gradient(0deg, rgba(0,0,0,.32), rgba(0,0,0,.12) 40%, rgba(0,0,0,0));}
+
+  /* search + sort/filter card */
+  #sf-card{flex:1; position:relative; display:flex; align-items:center; justify-content:center; gap:5px; height:45px; padding:0 40px;
+    border:3px solid #000; border-radius:8px; cursor:pointer; user-select:none; white-space:nowrap; overflow:hidden;
+    --l:var(--ink); --r:var(--panel);
+    background:linear-gradient(to right, var(--l) 0 39px, var(--panel) 39px calc(100% - 39px), var(--r) calc(100% - 39px)) border-box;
+    font:700 min(.74rem,2.95vw) Arial,sans-serif; text-transform:uppercase;}
+  #sf-card .sk{color:var(--muted);} #sf-card .sv{color:var(--ink); overflow:hidden; text-overflow:ellipsis;}
+  #sf-card .dir{display:inline-block; width:10px; height:10px; flex:none;}
+  #sf-card .dir svg{width:100%; height:100%; display:block; transition:transform .2s;}
+  #sf-card .dir.up svg{transform:rotate(180deg);}
+  #sf-search, #sf-close{position:absolute; top:0; bottom:0; width:36px; display:flex; align-items:center; justify-content:center;}
+  #sf-search{left:0; border-right:3px solid #000;} #sf-close{right:0; border-left:3px solid #000; display:none;}
+  #sf-search svg, #sf-close svg{width:16px; height:16px; display:block;}
+  #sfq{position:absolute; left:36px; right:36px; top:0; bottom:0; display:none; margin:0; padding:0 8px; border:0; outline:0; background:transparent;
+    font:600 .9rem Georgia,serif; text-transform:none;}
+  #sf-card.searching{--r:#7a2f2b; cursor:text;}
+  #sf-card.searching .sl{visibility:hidden;}
+  #sf-card.searching #sf-close{display:flex;}
+  #sf-card.searching #sfq{display:block;}
+  #sf-card.has-q:not(.searching){--r:#7a2f2b;}
+  #sf-card.has-q:not(.searching) #sf-close{display:flex;}
+  .sl{display:flex; gap:5px; min-width:0; align-items:center;}
+
+  /* ---- frozen footer: Add New Album ---- */
+  #app-footer{position:fixed; left:0; right:0; bottom:0; z-index:9; display:flex; flex-direction:column; gap:4px;
+    padding:4px 4px calc(4px + env(safe-area-inset-bottom)); background:var(--band); border-top:3px solid #000; border-bottom:3px solid #000;}
+  #app-footer[hidden]{display:none;}
+  .add-card{display:flex; align-items:center; justify-content:center; gap:10px; height:45px; border:3px solid #000; border-radius:8px; cursor:pointer;
+    background:#5b6633; color:#fff; font:700 min(1rem, 4vw)/1 Georgia,'Times New Roman',serif; letter-spacing:.14em; text-transform:uppercase; user-select:none;}
+  .add-card b{font-size:1.15em;}
+  .add-card:active{filter:brightness(.92);}
+
+  /* ---- shared GT50 pieces ---- */
+  .list-divider{display:flex; align-items:center; gap:10px; height:45px; padding:0 4px;}
+  .list-divider::before, .list-divider::after{content:''; flex:1; height:3px; background:#000; border-radius:2px;}
+  .list-divider span{font:600 .9rem Georgia,serif; text-transform:uppercase; letter-spacing:.5px; max-width:75%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .list-divider.sm{height:28px;} .list-divider.sm span{font-size:.78rem;}
+  .empty{padding:40px 12px; text-align:center; font:.8rem/1.5 Arial,sans-serif; color:var(--muted);}
+  .note{font:.66rem/1.45 Arial,sans-serif; color:var(--muted); padding:2px 6px; text-align:center;}
+  .note a{color:var(--ink);}
+  .seg{display:flex; height:45px; flex:none; border:3px solid #000; border-radius:8px; overflow:hidden; background:#000; gap:3px;}
+  .seg button{flex:1; min-width:0; margin:0; padding:0 4px; border:0; border-radius:0; background:var(--hdr-cell); color:var(--ink);
+    font:700 min(.78rem,3.1vw) Arial,sans-serif; letter-spacing:.4px; text-transform:uppercase; white-space:nowrap;}
+  .seg button.on{background:var(--ink); color:#fff;}
+  .spin{display:inline-block; width:14px; height:14px; border:3px solid var(--unread); border-top-color:var(--ink); border-radius:50%;
+    animation:sp 1s linear infinite; vertical-align:-2px;}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .toast{position:fixed; left:50%; top:calc(var(--header-h,90px) + 8px); transform:translate(-50%,-20px); opacity:0; z-index:80;
+    background:var(--ink); color:#fff; border:3px solid #000; border-radius:8px; padding:10px 16px; font:.8rem Arial,sans-serif;
+    pointer-events:none; transition:opacity .2s, transform .2s; max-width:90vw; text-align:center;}
+  .toast.show{opacity:1; transform:translate(-50%,0);}
+
+  /* cover art: a square; when there's no picture, the album's color with its initials and a record */
+  .art{flex:none; position:relative; background-color:var(--c,#555); background-size:cover; background-position:center; overflow:hidden;}
+  .art.ph{background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 1px, transparent 1px 9px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4%; color:#f3eee4;}
+  .art.ph span{font:700 calc(var(--sz,56px) * .34)/1 Georgia,serif; letter-spacing:-.02em;}
+  .art.ph svg{width:30%; height:30%; display:block;}
+  .art.round{border-radius:50%;}
+
+  /* ---- album cards ---- */
+  .alb{position:relative; display:flex; align-items:stretch; height:62px; background:var(--panel); border-radius:8px; overflow:hidden; cursor:pointer; user-select:none;}
+  .alb::after{content:''; position:absolute; inset:0; border:3px solid #000; border-radius:8px; pointer-events:none; z-index:2;}
+  .alb:active{filter:brightness(.96);}
+  .alb .art{width:62px; --sz:62px; border-right:3px solid #000;}
+  .alb .main{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:0 10px; line-height:1.15;}
+  .t{font:600 .9rem Georgia,serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .a{font:.68rem Arial,sans-serif; color:rgba(43,38,32,.75); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .m{font:700 .56rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ty{flex:none; width:40px; display:flex; align-items:center; justify-content:center; border-left:3px solid #000; background:var(--tc);}
+  .ty span{writing-mode:vertical-rl; transform:rotate(180deg); font:700 .66rem/1 Arial,sans-serif; letter-spacing:1.2px; color:#fff; text-transform:uppercase;}
+  .hit{font:italic .62rem Arial,sans-serif; color:#7a2f2b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+
+  /* ---- artist cards (the artist list) ---- */
+  .art-card{position:relative; display:flex; align-items:stretch; height:56px; background:var(--panel); border-radius:8px; overflow:hidden; cursor:pointer; user-select:none;}
+  .art-card::after{content:''; position:absolute; inset:0; border:3px solid #000; border-radius:8px; pointer-events:none; z-index:2;}
+  .art-card .art{width:56px; --sz:56px; border-right:3px solid #000;}
+  .art-card .main{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:3px; padding:0 10px; line-height:1.15;}
+  .art-card .cnt{flex:none; width:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:3px solid #000; background:var(--unread);
+    font:700 1.05rem/1 Georgia,serif;}
+  .art-card .cnt small{font:700 .46rem Arial,sans-serif; letter-spacing:.6px; color:var(--muted); text-transform:uppercase; margin-top:3px;}
+  .art-card:active{filter:brightness(.96);}
+
+  /* ---- full-window pages (sort, add/edit, album, artist, artist list) ---- */
+  .page{position:fixed; inset:0; z-index:40; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch;
+    opacity:0; visibility:hidden; transition:opacity 180ms ease, visibility 0s linear 180ms;}
+  .page.open{opacity:1; visibility:visible; transition:opacity 180ms ease, visibility 0s;}
+  #ap-page{z-index:50;} #al-page{z-index:42;} #ar-page{z-index:41;} #ed-page{z-index:45;}
+  .pg-head{position:sticky; top:0; z-index:5; display:flex; gap:3px; padding-top:env(safe-area-inset-top); background:#000; border-top:3px solid #000; border-bottom:3px solid #000;}
+  .pg-head button{flex:0 0 25%; height:42px; margin:0; padding:0 2px; border:0; border-radius:0; background:#7a2f2b; color:#fff;
+    font:700 min(.74rem, 2.95vw)/1.1 Arial,sans-serif; text-transform:uppercase; cursor:pointer;}
+  .pg-head button.go{background:#2e4636;}
+  .pg-head button.go:disabled{background:#4c5a50; color:rgba(255,255,255,.45); cursor:default;}
+  .pg-head button.blank{background:var(--hdr-cell); color:transparent; pointer-events:none;}
+  .pg-head h2:has(+ .blank){margin-right:-3px;}   /* no right-hand button: the title cell runs to the edge, still centered */
+  .pg-head h2{flex:1; min-width:0; margin:0; height:42px; padding:0 8px; background:var(--hdr-cell); text-align:center;
+    font:700 min(.74rem, 2.95vw)/42px Arial,sans-serif; text-transform:uppercase; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pg-body{display:flex; flex-direction:column; gap:4px; padding:4px 4px calc(24px + env(safe-area-inset-bottom)); max-width:760px; margin:0 auto;}
+
+  /* sort page options */
+  .so-opt{display:flex; align-items:center; gap:8px; height:45px; margin:0; padding:0 10px; text-align:left; width:100%;
+    background:var(--panel); border:3px solid #000; border-radius:8px; cursor:pointer; line-height:1.15;}
+  .so-opt .tx{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px;}
+  .so-opt b{font:700 .84rem Arial,sans-serif; letter-spacing:.4px; text-transform:uppercase; color:var(--ink);}
+  .so-opt span{font:700 .56rem Arial,sans-serif; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .so-opt.on{background:var(--ink);} .so-opt.on b{color:#fff;} .so-opt.on span{color:#cfc8ba;}
+  .so-opt i{flex:none; width:22px; height:22px; display:none;}
+  .so-opt.on i{display:block;}
+  .so-opt i svg{width:100%; height:100%; display:block; transition:transform .2s;}
+  .so-opt i.up svg{transform:rotate(180deg);}
+
+  /* add / edit: the record preview */
+  .pv{display:flex; align-items:center; justify-content:center; height:206px; flex:none; position:relative;}
+  .sleeve-wrap{position:relative; width:var(--s); height:var(--s); margin-right:calc(var(--s) * .42); transition:width .3s, height .3s, margin .3s;}
+  .disc{position:absolute; top:3%; left:3%; width:94%; height:94%; border-radius:50%; transform:translateX(0);
+    background:repeating-radial-gradient(circle at 50% 50%, #161412 0 1.4px, #26221f 1.4px 2.6px);
+    box-shadow:0 2px 6px rgba(0,0,0,.35); transition:transform .55s cubic-bezier(.3,.9,.35,1);}
+  .disc::before{content:''; position:absolute; inset:0; border-radius:50%; background:conic-gradient(from 30deg, rgba(255,255,255,0) 0 40deg, rgba(255,255,255,.12) 55deg, rgba(255,255,255,0) 70deg 210deg, rgba(255,255,255,.1) 225deg, rgba(255,255,255,0) 240deg);}
+  .disc .lbl{position:absolute; left:50%; top:50%; width:36%; height:36%; margin:-18% 0 0 -18%; border-radius:50%; background:var(--c,#7a2f2b); border:2px solid rgba(0,0,0,.35);}
+  .disc .lbl::after{content:''; position:absolute; left:50%; top:50%; width:12%; height:12%; margin:-6% 0 0 -6%; border-radius:50%; background:var(--bg);}
+  .pv.in .disc{transform:translateX(42%);}
+  .sleeve{position:absolute; inset:0; border:3px solid #000; border-radius:4px; overflow:hidden; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.25);}
+  .sleeve .art{position:absolute; inset:0; width:100%; height:100%;}
+  .sleeve .hint{position:absolute; left:0; right:0; bottom:0; padding:3px 0; background:rgba(0,0,0,.55); color:#fff; text-align:center;
+    font:700 .52rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase;}
+
+  /* add / edit: fields */
+  .fc{position:relative; display:flex; flex-direction:column; justify-content:center; height:48px; padding:0 10px; background:var(--panel);
+    border:3px solid #000; border-radius:8px; min-width:0;}
+  .fc label{font:700 .54rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); line-height:1;}
+  .fc input{width:100%; border:0; outline:0; background:none; padding:3px 0 0; font:600 .92rem Georgia,serif; color:var(--ink);}
+  .fc input::placeholder{color:#c4bdb0; font-weight:400;}
+  .fc.bad label{color:var(--red);}
+  .row2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:4px;}
+  .row-art{display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:4px;}
+  .card-btn{height:48px; margin:0; padding:0 6px; border:3px solid #000; border-radius:8px; background:var(--panel); color:var(--ink);
+    font:700 min(.76rem,3vw) Arial,sans-serif; letter-spacing:.4px; text-transform:uppercase;}
+  .card-btn.ink{background:var(--ink); color:#fff;}
+  .card-btn:disabled{color:var(--muted); cursor:default;}
+  .card-btn.ink:disabled{background:#6d665d; color:#cfc8ba;}
+  .lk{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 25%; gap:4px;}
+  .lk-st{font:.72rem/1.4 Arial,sans-serif; color:var(--muted); text-align:center; padding:6px 8px;}
+  .lk-st.err{color:var(--red);}
+  .sr-list{border:3px solid #000; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; gap:3px; background:#000;}
+  .sr-list:empty{display:none;}
+  .sr-sec{height:22px; display:flex; align-items:center; justify-content:space-between; padding:0 10px; background:var(--hdr-cell);
+    font:700 .56rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--ink);}
+  .sr-sec span{color:rgba(43,38,32,.6);}
+  .lk-row{display:flex; align-items:stretch; min-height:50px; margin:0; padding:0; border:0; border-radius:0; background:#fff; width:100%; text-align:left; color:var(--ink);}
+  .lk-row .art{width:50px; --sz:50px; border-right:3px solid #000; background-color:var(--unread);}
+  .lk-row .art img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;}
+  .lk-row .tx{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:4px 10px;}
+  .lk-row b{font:600 .86rem/1.15 Georgia,serif; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .lk-row small{font:.64rem/1.2 Arial,sans-serif; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .lk-row .tg{flex:none; align-self:center; margin-right:8px; padding:2px 5px; border:2px solid currentColor; border-radius:5px; font:700 .5rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase; color:var(--muted);}
+  .lk-row:active{background:var(--unread);}
+  .lk-row.busy .tg{border:0; padding:0;}
+  .lk-more{height:36px; margin:0; border:0; border-radius:0; background:var(--hdr-cell); font:700 .62rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase;}
+
+  /* tracks */
+  .trk{display:flex; height:42px; background:#fff; border:3px solid #000; border-radius:8px; overflow:hidden;}
+  .trk .n{flex:none; width:38px; display:flex; align-items:center; justify-content:center; background:var(--c,#7a2f2b); border-right:3px solid #000;
+    color:#fff; font:700 .74rem Arial,sans-serif; font-variant-numeric:tabular-nums;}
+  .trk input{min-width:0; border:0; outline:0; background:transparent; padding:0 8px;}
+  .trk .tt{flex:1; font:600 .84rem Georgia,serif;}
+  .trk .tl{flex:none; width:68px; border-left:3px solid #000; text-align:center; font:600 .8rem Arial,sans-serif; font-variant-numeric:tabular-nums;}
+  .trk .x{flex:none; width:38px; margin:0; padding:0; border:0; border-left:3px solid #000; border-radius:0; background:#fff; color:var(--red); font:700 1.15rem/1 Arial,sans-serif;}
+  .trk .tl::placeholder, .trk .tt::placeholder{color:#c4bdb0; font-weight:400;}
+  .disc-row{font:700 .58rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); padding:4px 4px 0;}
+  .dash-btn{height:42px; margin:0; border:3px dashed #000; border-radius:8px; background:transparent; font:700 .72rem Arial,sans-serif; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
+  .del-btn{height:45px; margin:12px 0 0; border:3px solid #000; border-radius:8px; background:#fff; color:var(--red); font:700 .8rem Arial,sans-serif; letter-spacing:.5px; text-transform:uppercase;}
+  .del-btn.armed{background:var(--red); color:#fff;}
+  .del-btn[hidden]{display:none;}
+
+  /* album window */
+  .show-head{position:relative; display:flex; align-items:stretch; height:118px; background:#fff; border-radius:8px; overflow:hidden;}
+  .show-head::after{content:''; position:absolute; inset:0; border:3px solid #000; border-radius:8px; pointer-events:none; z-index:2;}
+  .show-head .art{width:118px; --sz:118px; border-right:3px solid #000;}
+  .show-head .main{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:8px 12px;}
+  .show-head .t{font-size:1.08rem; line-height:1.15; white-space:normal; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;}
+  .show-head .a{font-size:.78rem;}
+  .show-head .a u{text-decoration:none; border-bottom:1.5px solid rgba(43,38,32,.4); cursor:pointer;}
+  .stats{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); background:#000; gap:3px; border:3px solid #000; border-radius:8px; overflow:hidden;}
+  .stats > div{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:45px; padding:4px; background:#fff; text-align:center;}
+  .stats b{font:700 .84rem/1.1 Georgia,serif; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .stats small{font:700 .5rem Arial,sans-serif; letter-spacing:.7px; text-transform:uppercase; color:var(--muted);}
+  .stats.three{grid-template-columns:repeat(3, minmax(0,1fr));}
+  .tr-row{display:flex; align-items:stretch; min-height:40px; background:#fff;}
+  .tr-row .n{flex:none; width:38px; display:flex; align-items:center; justify-content:center; background:var(--c); border-right:3px solid #000;
+    color:#fff; font:700 .72rem Arial,sans-serif; font-variant-numeric:tabular-nums;}
+  .tr-row .tx{flex:1; min-width:0; display:flex; align-items:center; padding:4px 10px; font:600 .84rem/1.2 Georgia,serif;}
+  .tr-row .ln{flex:none; display:flex; align-items:center; padding:0 10px; font:.74rem Arial,sans-serif; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .tr-row.hl .tx{color:#7a2f2b;}
+
+  /* artist list picker (from Add / Edit) */
+  .tg-new{display:flex; gap:4px; height:48px;}
+  .tg-new .fc{flex:1;}
+  .tg-new .card-btn{flex:0 0 25%;}
+
+  /* data */
+  .dt-big{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:4px;}
+  .dt-big > div{display:flex; flex-direction:column; align-items:center; justify-content:center; height:70px; background:#fff; border:3px solid #000; border-radius:8px;}
+  .dt-big b{font:700 1.4rem/1 Georgia,serif;}
+  .dt-big small{font:700 .56rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); margin-top:6px;}
+  .bars{display:flex; flex-direction:column; gap:4px; padding:8px 10px; background:#fff; border:3px solid #000; border-radius:8px;}
+  .bar{display:grid; grid-template-columns:30% minmax(0,1fr) 34px; align-items:center; gap:8px; font:700 .62rem Arial,sans-serif; letter-spacing:.4px; text-transform:uppercase;}
+  .bar span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .bar i{display:block; height:12px; border:2px solid #000; border-radius:6px; background:var(--unread); overflow:hidden;}
+  .bar i em{display:block; height:100%; background:var(--c);}
+  .bar b{text-align:right; color:var(--muted);}
+  @media (prefers-reduced-motion:reduce){ .disc, .page, .toast{transition:none !important;} .spin{animation-duration:3s;} }
+</style>
+</head>
+<body>
+
+<div id="app-header">
+  <div id="tabs">
+    <div class="tab active" data-tab="library" style="--cloth:#7a2f2b">Library</div>
+    <div class="tab" data-tab="artists" style="--cloth:#2b5752">Artists</div>
+    <div class="tab" data-tab="data" style="--cloth:#8a6a3f">Data</div>
+  </div>
+  <div class="hdr-row" id="row2">
+    <div id="sf-card">
+      <span id="sf-search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><circle cx="10" cy="10" r="6.5"/><path d="M15 15l6 6"/></svg></span>
+      <input id="sfq" type="text" aria-label="Search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+      <span id="sf-close" aria-label="Clear search"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+      <span class="sl"><span class="sk">Filter by:</span><span class="sv" id="sf-filter">All</span><span class="sk">• Sort by:</span><i class="dir" id="sf-dir"><svg viewBox="0 0 40 40"><polygon points="10.4,11 29.6,11 20,27.6" fill="#000" stroke="#000" stroke-width="5" stroke-linejoin="round"/></svg></i><span class="sv" id="sf-sort">Date added</span></span>
+    </div>
+  </div>
+</div>
+
+<div id="app"></div>
+
+<div id="app-footer"><div class="add-card" id="add-card"><b>+</b>Add New Album</div></div>
+
+<!-- sort and filter -->
+<div class="page" id="so-page" aria-hidden="true">
+  <div class="pg-head"><button type="button" id="so-back">Back</button><h2>Sort and Filter</h2><button type="button" class="blank" tabindex="-1">.</button></div>
+  <div class="pg-body" id="so-body"></div>
+</div>
+
+<!-- an artist's window -->
+<div class="page" id="ar-page" aria-hidden="true">
+  <div class="pg-head"><button type="button" id="ar-back">Back</button><h2 id="ar-title">Artist</h2><button type="button" class="go" id="ar-ren">Rename</button></div>
+  <div class="pg-body" id="ar-body"></div>
+</div>
+
+<!-- an album's window -->
+<div class="page" id="al-page" aria-hidden="true">
+  <div class="pg-head"><button type="button" id="al-back">Back</button><h2 id="al-title">Album</h2><button type="button" class="go" id="al-edit">Edit</button></div>
+  <div class="pg-body" id="al-body"></div>
+</div>
+
+<!-- add / edit -->
+<div class="page" id="ed-page" aria-hidden="true">
+  <div class="pg-head"><button type="button" id="ed-cancel">Cancel</button><h2 id="ed-title">Add an Album</h2><button type="button" class="go" id="ed-save" disabled>Add</button></div>
+  <div class="pg-body">
+    <div class="seg" id="ed-type"><button type="button" data-t="Album" class="on">Album</button><button type="button" data-t="LP">LP</button><button type="button" data-t="EP">EP</button><button type="button" data-t="Single">Single</button></div>
+    <div class="pv" id="ed-pv"><div class="sleeve-wrap" id="ed-sw"><div class="disc"><i class="lbl"></i></div><div class="sleeve" id="ed-sleeve"></div></div></div>
+    <div class="list-divider sm"><span>Look Up</span></div>
+    <div class="lk">
+      <div class="fc"><label for="lk-album">Album</label><input id="lk-album" autocomplete="off" enterkeyhint="search" placeholder="Album name"></div>
+      <div class="fc"><label for="lk-artist">Artist</label><input id="lk-artist" autocomplete="off" enterkeyhint="search" placeholder="Optional"></div>
+      <button type="button" class="card-btn ink" id="lk-go">Search</button>
+    </div>
+    <div class="lk-st" id="lk-st">Search MusicBrainz to fill everything in, or type it yourself below.</div>
+    <div class="sr-list" id="lk-res"></div>
+    <div class="list-divider sm"><span>Details</span></div>
+    <div class="fc" id="fc-title"><label for="ed-t">Title</label><input id="ed-t" autocomplete="off"></div>
+    <div class="row-art">
+      <div class="fc" id="fc-artist"><label for="ed-a">Artist</label><input id="ed-a" autocomplete="off"></div>
+      <button type="button" class="card-btn" id="ed-alist">Artist List</button>
+    </div>
+    <div class="row2">
+      <div class="fc"><label for="ed-y">Year</label><input id="ed-y" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Optional"></div>
+      <div class="fc"><label for="ed-g">Genre</label><input id="ed-g" autocomplete="off" placeholder="Optional"></div>
+    </div>
+    <div class="fc"><label for="ed-l">Label</label><input id="ed-l" autocomplete="off" placeholder="Optional"></div>
+    <div class="row2">
+      <button type="button" class="card-btn" id="ed-photo">Choose Cover</button>
+      <button type="button" class="card-btn" id="ed-nophoto">No Cover</button>
+    </div>
+    <input type="file" id="ed-file" accept="image/*" hidden>
+    <div class="list-divider sm"><span id="ed-trk-h">Tracks</span></div>
+    <div id="ed-tracks" style="display:flex; flex-direction:column; gap:4px"></div>
+    <button type="button" class="dash-btn" id="ed-addtrk">+ Add Track</button>
+    <button type="button" class="del-btn" id="ed-del" hidden>Delete Album</button>
+  </div>
+</div>
+
+<!-- the artist list (from Add / Edit) -->
+<div class="page" id="ap-page" aria-hidden="true">
+  <div class="pg-head"><button type="button" id="ap-done">Done</button><h2>Artists</h2><button type="button" class="blank" tabindex="-1">.</button></div>
+  <div class="pg-body">
+    <div class="tg-new"><div class="fc"><label for="ap-new">New artist</label><input id="ap-new" autocomplete="off" placeholder="Artist name" enterkeyhint="done"></div><button type="button" class="card-btn ink" id="ap-use">Use</button></div>
+    <div id="ap-list" style="display:flex; flex-direction:column; gap:4px"></div>
+  </div>
+</div>
+
+<input type="file" id="imp-file" accept="application/json,.json" hidden>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ================= basics ================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const TYPES=['Album','LP','EP','Single'];
+const TYPE_PL={Album:'Albums',LP:'LPs',EP:'EPs',Single:'Singles'};
+const TYPE_C={Album:'#2b2620',LP:'#7a2f2b',EP:'#2b5752',Single:'#8a6a3f'};
+const CLOTHS=['#7a2f2b','#2b5752','#66304c','#303d66','#8a6a3f','#5b6633','#2e4636','#5d3a85','#86452b','#3a2f52','#2f5fae','#7a5a2b'];
+function hash(s){let h=2166136261;for(const ch of String(s).toLowerCase())h=Math.imul(h^ch.codePointAt(0),16777619);return h>>>0}
+const clothOf=s=>CLOTHS[hash(s)%CLOTHS.length];
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const ART_RE=/^(the|a|an)\s+/i;
+const sortKey=s=>String(s||'').trim().replace(ART_RE,'').toLowerCase();
+function initials(s){
+  const SMALL=/^(of|and|the|a|an|in|on|to|for|at|by|&)$/i;
+  let w=String(s||'').replace(ART_RE,'').split(/[\s\-_/]+/).filter(x=>/[\p{L}\p{N}]/u.test(x));
+  if(w.length>2)w=[w[0],...w.slice(1).filter(x=>!SMALL.test(x))];
+  const ch=x=>[...x].find(c=>/[\p{L}\p{N}]/u.test(c))||'';
+  return (w.length>1?ch(w[0])+ch(w[1]):ch(w[0]||'?')).toUpperCase()||'?';
+}
+const DISC_SVG='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/></svg>';
+function artHTML(a,extra='',st=''){
+  if(a.cover)return `<div class="art ${extra}" style="${st}background-image:url('${a.cover.replace(/'/g,'%27')}')"></div>`;
+  return `<div class="art ph ${extra}" style="${st}--c:${clothOf((a.title||'')+'|'+(a.artist||''))}"><span>${esc(initials(a.title))}</span>${DISC_SVG}</div>`;
+}
+function artistArt(name){return `<div class="art ph" style="--c:${clothOf('artist|'+name)}"><span>${esc(initials(name))}</span>${DISC_SVG}</div>`}
+// lengths in seconds; written m:ss, or h:mm:ss past an hour
+function fmtLen(s){s=Math.round(s||0);if(!s)return '';const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${x}`:`${m}:${x}`}
+function fmtLong(s){s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.round(s%3600/60);return h?`${h}h ${m}m`:`${m}m`}
+function parseLen(v){v=String(v||'').trim();if(!v)return 0;const p=v.split(':').map(x=>parseInt(x,10));if(p.some(isNaN))return 0;return p.reduce((t,x)=>t*60+x,0)}
+const total=a=>(a.tracks||[]).reduce((t,x)=>t+(x.len||0),0);
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200)}
+
+/* ================= storage: IndexedDB, with localStorage as a fallback ================= */
+const KEY='spin-tracker';
+const Store={
+  db:null,
+  open(){return new Promise(ok=>{try{const r=indexedDB.open(KEY,1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');
+    r.onsuccess=()=>{this.db=r.result;ok()};r.onerror=()=>ok()}catch(e){ok()}})},
+  get(){return new Promise(ok=>{if(!this.db){try{ok(JSON.parse(localStorage.getItem(KEY)))}catch(e){ok(null)}return}
+    const q=this.db.transaction('kv').objectStore('kv').get('state');q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null)})},
+  set(v){if(!this.db){try{localStorage.setItem(KEY,JSON.stringify(v))}catch(e){toast('Couldn’t save: storage is full')}return}
+    this.db.transaction('kv','readwrite').objectStore('kv').put(v,'state')}
+};
+const S={albums:[], ui:{tab:'library', lib:{sort:'added',dir:-1,filter:'All'}, art:{sort:'name',dir:1,filter:'All'}}};
+let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>Store.set(JSON.parse(JSON.stringify(S))),150)}
+
+/* ================= header / footer sizes ================= */
+function measure(){
+  document.documentElement.style.setProperty('--header-h',$('#app-header').offsetHeight+'px');
+  document.documentElement.style.setProperty('--footer-h',$('#app-footer').hidden?'0px':$('#app-footer').offsetHeight+'px');
+}
+new ResizeObserver(measure).observe($('#app-header'));new ResizeObserver(measure).observe($('#app-footer'));
+
+/* ================= artists ================= */
+function artistMap(){
+  const m=new Map();
+  for(const a of S.albums){const n=(a.artist||'').trim()||'Unknown Artist',k=n.toLowerCase();
+    if(!m.has(k))m.set(k,{name:n,albums:[]});m.get(k).albums.push(a);}
+  return m;
+}
+function typeCounts(list){const c={};for(const a of list)c[a.type]=(c[a.type]||0)+1;
+  return TYPES.filter(t=>c[t]).map(t=>`${c[t]} ${c[t]===1?t:TYPE_PL[t]}`).join(' · ')}
+
+/* ================= sorting ================= */
+const LIB_SORTS=[
+  {k:'added',n:'Date added',d:'Newest first',def:-1},
+  {k:'title',n:'Title',d:'A–Z, ignoring “The”, “A” and “An”',def:1},
+  {k:'artist',n:'Artist',d:'By artist, then oldest release first',def:1},
+  {k:'year',n:'Year',d:'Oldest first; no year last',def:1},
+  {k:'length',n:'Length',d:'Longest first',def:-1},
+  {k:'type',n:'Type',d:'Albums, LPs, EPs, then singles',def:1},
+  {k:'genre',n:'Genre',d:'Grouped by genre, A–Z',def:1},
+];
+const ART_SORTS=[
+  {k:'name',n:'Name',d:'A–Z, ignoring “The”',def:1},
+  {k:'count',n:'Most releases',d:'Most in your library first',def:-1},
+  {k:'length',n:'Most music',d:'Longest total running time first',def:-1},
+  {k:'added',n:'Recently added',d:'Artist of your newest release first',def:-1},
+];
+const yr=a=>parseInt(a.year,10)||0;
+function cmpAlb(k){
+  const T=(a,b)=>sortKey(a.title).localeCompare(sortKey(b.title));
+  return{
+    added:(a,b)=>a.added-b.added,
+    title:T,
+    artist:(a,b)=>sortKey(a.artist).localeCompare(sortKey(b.artist))||(yr(a)||9999)-(yr(b)||9999)||T(a,b),
+    year:(a,b)=>(yr(a)||9999)-(yr(b)||9999)||T(a,b),
+    length:(a,b)=>total(a)-total(b)||T(a,b),
+    type:(a,b)=>TYPES.indexOf(a.type)-TYPES.indexOf(b.type)||sortKey(a.artist).localeCompare(sortKey(b.artist))||(yr(a)||9999)-(yr(b)||9999),
+    genre:(a,b)=>(a.genre?0:1)-(b.genre?0:1)||String(a.genre||'').toLowerCase().localeCompare(String(b.genre||'').toLowerCase())||sortKey(a.artist).localeCompare(sortKey(b.artist))||(yr(a)||9999)-(yr(b)||9999),
+  }[k];
+}
+function groupOf(k,a){
+  if(k==='artist')return a.artist||'Unknown Artist';
+  if(k==='year'){const y=yr(a);return y?`${Math.floor(y/10)*10}s`:'No Year'}
+  if(k==='type')return TYPE_PL[a.type];
+  if(k==='genre')return a.genre||'No Genre';
+  return null;
+}
+let Q='';   // the search text for the tab on screen
+function matchAlb(a,q){
+  if(!q)return{ok:true};
+  const h=[a.title,a.artist,a.genre,a.label,a.year,a.type].join(' ').toLowerCase();
+  if(h.includes(q))return{ok:true};
+  const t=(a.tracks||[]).find(x=>(x.t||'').toLowerCase().includes(q));
+  return t?{ok:true,track:t.t}:{ok:false};
+}
+
+/* ================= rendering: tabs ================= */
+function setTab(t){
+  S.ui.tab=t;save();Q='';$('#sfq').value='';$('#sf-card').classList.remove('searching','has-q');
+  $$('#tabs .tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
+  $('#row2').hidden=t==='data';$('#app-header').classList.toggle('bare',t==='data');
+  $('#app-footer').hidden=t==='data';document.body.classList.toggle('no-foot',t==='data');
+  measure();render();scrollTo(0,0);
+}
+function render(){({library:renderLib,artists:renderArtists,data:renderData})[S.ui.tab]();renderSf()}
+function renderSf(){
+  const t=S.ui.tab;if(t==='data')return;
+  const u=t==='library'?S.ui.lib:S.ui.art,list=t==='library'?LIB_SORTS:ART_SORTS;
+  $('#sf-filter').textContent=u.filter==='All'?'All':TYPE_PL[u.filter];
+  $('#sf-sort').textContent=(list.find(s=>s.k===u.sort)||list[0]).n;
+  $('#sf-dir').classList.toggle('up',u.dir===(list.find(s=>s.k===u.sort)||list[0]).def);
+  $('#sfq').placeholder=t==='library'?'Titles, artists, genres, songs':'Artist name';
+}
+function albRow(a,hit){
+  const len=total(a),n=(a.tracks||[]).length;
+  const meta=[a.year,a.genre,n?`${n} track${n===1?'':'s'}`:'',len?fmtLen(len):''].filter(Boolean).join(' · ');
+  return `<div class="alb" data-id="${a.id}">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div><div class="a">${esc(a.artist||'Unknown Artist')}</div>${hit?`<div class="hit">♪ ${esc(hit)}</div>`:`<div class="m">${esc(meta)||'&nbsp;'}</div>`}</div><div class="ty" style="--tc:${TYPE_C[a.type]}"><span>${esc(a.type)}</span></div></div>`;
+}
+function renderLib(){
+  const u=S.ui.lib,q=Q.trim().toLowerCase();
+  let list=S.albums.filter(a=>u.filter==='All'||a.type===u.filter).map(a=>({a,m:matchAlb(a,q)})).filter(x=>x.m.ok);
+  const c=cmpAlb(u.sort);list.sort((x,y)=>c(x.a,y.a)*u.dir);
+  let h='',last=null;
+  for(const {a,m} of list){const g=groupOf(u.sort,a);if(g!==null&&g!==last){h+=`<div class="list-divider"><span>${esc(g)}</span></div>`;last=g}h+=albRow(a,m.track)}
+  if(!S.albums.length)h=`<div class="empty">Your crate is empty.<br>Tap <b>Add New Album</b> to look one up.</div>`;
+  else if(!list.length)h=`<div class="empty">Nothing matches${q?` “${esc(Q.trim())}”`:''}${u.filter!=='All'?` in ${TYPE_PL[u.filter]}`:''}.</div>`;
+  $('#app').innerHTML=h;
+}
+function renderArtists(){
+  const u=S.ui.art,q=Q.trim().toLowerCase();
+  let list=[...artistMap().values()].filter(x=>(u.filter==='All'||x.albums.some(a=>a.type===u.filter))&&(!q||x.name.toLowerCase().includes(q)));
+  const N=(a,b)=>sortKey(a.name).localeCompare(sortKey(b.name));
+  const c={name:N,count:(a,b)=>a.albums.length-b.albums.length||-N(a,b)*u.dir,
+    length:(a,b)=>a.albums.reduce((t,x)=>t+total(x),0)-b.albums.reduce((t,x)=>t+total(x),0)||-N(a,b)*u.dir,
+    added:(a,b)=>Math.max(...a.albums.map(x=>x.added))-Math.max(...b.albums.map(x=>x.added))}[u.sort];
+  list.sort((a,b)=>c(a,b)*u.dir);
+  let h='',last=null;
+  for(const x of list){
+    if(u.sort==='name'){const L=(sortKey(x.name)[0]||'#').toUpperCase(),g=/[A-Z]/.test(L)?L:'#';if(g!==last){h+=`<div class="list-divider"><span>${g}</span></div>`;last=g}}
+    const len=x.albums.reduce((t,a)=>t+total(a),0);
+    h+=`<div class="art-card" data-artist="${esc(x.name)}">${artistArt(x.name)}<div class="main"><div class="t">${esc(x.name)}</div><div class="m">${esc(typeCounts(x.albums))}${len?' · '+fmtLong(len):''}</div></div><div class="cnt">${x.albums.length}<small>${x.albums.length===1?'Release':'Releases'}</small></div></div>`;
+  }
+  if(!S.albums.length)h=`<div class="empty">No artists yet.<br>They show up here as you add albums.</div>`;
+  else if(!list.length)h=`<div class="empty">No artists match${q?` “${esc(Q.trim())}”`:''}.</div>`;
+  $('#app').innerHTML=h;
+}
+function renderData(){
+  const al=S.albums,tr=al.reduce((t,a)=>t+(a.tracks||[]).length,0),len=al.reduce((t,a)=>t+total(a),0),ar=artistMap().size;
+  const gc={};for(const a of al)if(a.genre)gc[a.genre]=(gc[a.genre]||0)+1;
+  const gs=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,8),gmax=gs[0]?.[1]||1;
+  const dc={};for(const a of al){const y=yr(a);if(y){const d=Math.floor(y/10)*10;dc[d]=(dc[d]||0)+1}}
+  const ds=Object.entries(dc).sort((a,b)=>a[0]-b[0]),dmax=Math.max(1,...ds.map(x=>x[1]));
+  const tc=TYPES.map(t=>[t,al.filter(a=>a.type===t).length]).filter(x=>x[1]),tmax=Math.max(1,...tc.map(x=>x[1]));
+  const bars=(rows,max,col)=>`<div class="bars">${rows.map(([n,v],i)=>`<div class="bar"><span>${esc(n)}</span><i><em style="width:${v/max*100}%; --c:${col(n,i)}"></em></i><b>${v}</b></div>`).join('')}</div>`;
+  $('#app').innerHTML=`<div class="list-divider"><span>Your Collection</span></div>
+    <div class="dt-big"><div><b>${al.length}</b><small>Releases</small></div><div><b>${ar}</b><small>Artists</small></div><div><b>${tr}</b><small>Tracks</small></div><div><b>${len?fmtLong(len):'0m'}</b><small>Of Music</small></div></div>
+    ${tc.length?`<div class="list-divider sm"><span>By Type</span></div>${bars(tc,tmax,n=>TYPE_C[n])}`:''}
+    ${gs.length?`<div class="list-divider sm"><span>Top Genres</span></div>${bars(gs,gmax,n=>clothOf('g|'+n))}`:''}
+    ${ds.length?`<div class="list-divider sm"><span>By Decade</span></div>${bars(ds.map(([d,v])=>[d+'s',v]),dmax,(n,i)=>CLOTHS[i%CLOTHS.length])}`:''}
+    <div class="list-divider"><span>Backup</span></div>
+    <div class="row2"><button type="button" class="card-btn ink" id="dt-exp">Save Backup</button><button type="button" class="card-btn" id="dt-imp">Import Backup</button></div>
+    <div class="note">Everything is stored in this browser on this device. Save a backup to keep a copy or move it to another device. Importing adds the albums in the backup and updates ones you already have; nothing is removed.</div>
+    <div class="list-divider sm"><span>About</span></div>
+    <div class="note">Album details from <a href="https://musicbrainz.org" target="_blank" rel="noopener">MusicBrainz</a>, covers from the <a href="https://coverartarchive.org" target="_blank" rel="noopener">Cover Art Archive</a>. Both are free and need no account.</div>`;
+  $('#dt-exp').onclick=exportBackup;$('#dt-imp').onclick=()=>$('#imp-file').click();
+}
+
+/* ================= search + sort card ================= */
+$('#sf-card').addEventListener('click',e=>{
+  const c=$('#sf-card');
+  if(e.target.closest('#sf-close')){Q='';$('#sfq').value='';c.classList.remove('searching','has-q');render();return}
+  if(e.target.closest('#sf-search')||c.classList.contains('searching')){c.classList.add('searching');$('#sfq').focus();return}
+  openSort();
+});
+$('#sfq').addEventListener('input',e=>{Q=e.target.value;$('#sf-card').classList.toggle('has-q',!!Q.trim());render()});
+$('#sfq').addEventListener('keydown',e=>{if(e.key==='Enter')e.target.blur()});
+$('#sfq').addEventListener('blur',()=>{if(!Q.trim())$('#sf-card').classList.remove('searching','has-q');else $('#sf-card').classList.remove('searching')});
+
+/* ================= pages ================= */
+const stack=[];
+function openPage(id){const p=$(id);p.classList.add('open');p.setAttribute('aria-hidden','false');p.scrollTop=0;stack.push(id);history.pushState({p:id},'')}
+let skipPop=0;
+function closePage(id,fromPop){const p=$(id);p.classList.remove('open');p.setAttribute('aria-hidden','true');const i=stack.lastIndexOf(id);if(i>-1)stack.splice(i,1);if(!fromPop){skipPop++;history.back()}}
+addEventListener('popstate',()=>{if(skipPop){skipPop--;return}const id=stack[stack.length-1];if(id){if(id==='#ed-page'&&edDirty()&&!confirm('Discard this album?')){history.pushState({p:id},'');return}closePage(id,true)}});
+
+/* ---- sort page ---- */
+const TRI='<svg viewBox="0 0 40 40"><polygon points="10.4,11 29.6,11 20,27.6" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/></svg>';
+function openSort(){renderSort();openPage('#so-page')}
+function renderSort(){
+  const t=S.ui.tab,u=t==='library'?S.ui.lib:S.ui.art,list=t==='library'?LIB_SORTS:ART_SORTS;
+  $('#so-body').innerHTML=`<div class="list-divider"><span>Filter</span></div>
+    <div class="seg" id="so-f">${['All',...TYPES].map(x=>`<button type="button" data-f="${x}" class="${u.filter===x?'on':''}">${x==='All'?'All':TYPE_PL[x]}</button>`).join('')}</div>
+    <div class="list-divider"><span>Sort</span></div>
+    ${list.map(s=>`<button type="button" class="so-opt ${u.sort===s.k?'on':''}" data-s="${s.k}"><span class="tx"><b>${s.n}</b><span>${s.d}</span></span><i class="${u.dir===s.def?'up':''}">${TRI}</i></button>`).join('')}
+    <div class="note">Tap the chosen sort again to flip its order.</div>`;
+}
+$('#so-body').addEventListener('click',e=>{
+  const t=S.ui.tab,u=t==='library'?S.ui.lib:S.ui.art,list=t==='library'?LIB_SORTS:ART_SORTS;
+  const f=e.target.closest('[data-f]'),s=e.target.closest('[data-s]');
+  if(f){u.filter=f.dataset.f}
+  else if(s){const d=list.find(x=>x.k===s.dataset.s);if(u.sort===d.k)u.dir=-u.dir;else{u.sort=d.k;u.dir=d.def}}
+  else return;
+  save();renderSort();render();
+});
+$('#so-back').onclick=()=>closePage('#so-page');
+
+/* ---- album window ---- */
+let alId=null;
+function openAlbum(id){alId=id;renderAlbum();openPage('#al-page')}
+function renderAlbum(){
+  const a=S.albums.find(x=>x.id===alId);if(!a){if(stack.includes('#al-page'))closePage('#al-page');return}
+  const c=clothOf((a.title||'')+'|'+(a.artist||'')),len=total(a),tr=a.tracks||[];
+  $('#al-title').textContent=a.title||'Album';
+  const discs=new Set(tr.map(x=>x.d||1)).size>1;
+  let rows='',ld=null,n=0;
+  tr.forEach(x=>{const d=x.d||1;if(discs&&d!==ld){rows+=`<div class="sr-sec">Disc ${d}<span>${tr.filter(y=>(y.d||1)===d).length} tracks</span></div>`;ld=d;n=0}n++;
+    rows+=`<div class="tr-row"><span class="n" style="--c:${c}">${n}</span><span class="tx">${esc(x.t||'Untitled')}</span><span class="ln">${fmtLen(x.len)}</span></div>`});
+  $('#al-body').innerHTML=`<div class="show-head">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div><div class="a"><u data-artist="${esc(a.artist||'Unknown Artist')}">${esc(a.artist||'Unknown Artist')}</u></div><div class="m">${esc([a.type,a.year].filter(Boolean).join(' · '))}</div></div></div>
+    <div class="stats"><div><b>${tr.length}</b><small>Tracks</small></div><div><b>${len?fmtLen(len):'—'}</b><small>Length</small></div><div><b>${esc(a.genre||'—')}</b><small>Genre</small></div><div><b>${esc(a.label||'—')}</b><small>Label</small></div></div>
+    ${tr.length?`<div class="list-divider sm"><span>Tracklist</span></div><div class="sr-list">${!discs?`<div class="sr-sec">${tr.length} tracks<span>${len?fmtLen(len):''}</span></div>`:''}${rows}</div>`:`<div class="empty">No tracks listed. Tap <b>Edit</b> to add them.</div>`}
+    <div class="note">Added ${new Date(a.added).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}${a.mbid?` · <a href="https://musicbrainz.org/release-group/${esc(a.mbid)}" target="_blank" rel="noopener">View on MusicBrainz</a>`:''}</div>`;
+}
+$('#al-body').addEventListener('click',e=>{const u=e.target.closest('[data-artist]');if(u)openArtist(u.dataset.artist)});
+$('#al-back').onclick=()=>closePage('#al-page');
+$('#al-edit').onclick=()=>openEditor(alId);
+
+/* ---- artist window ---- */
+let arName=null,arRen=false;
+function openArtist(name){arName=name;arRen=false;renderArtist();openPage('#ar-page')}
+function renderArtist(){
+  const x=artistMap().get(String(arName).toLowerCase());
+  if(!x){if(stack.includes('#ar-page'))closePage('#ar-page');return}
+  arName=x.name;$('#ar-title').textContent=x.name;$('#ar-ren').textContent=arRen?'Cancel':'Rename';
+  const list=[...x.albums].sort(cmpAlb('type'));
+  const len=list.reduce((t,a)=>t+total(a),0),ys=list.map(yr).filter(Boolean);
+  let h=arRen?`<div class="tg-new"><div class="fc"><label for="ar-new">Artist name</label><input id="ar-new" autocomplete="off" value="${esc(x.name)}" enterkeyhint="done"></div><button type="button" class="card-btn ink" id="ar-save">Save</button></div><div class="note">Renames the artist on all ${list.length} of their releases. Use a name you already have to merge them.</div>`:'';
+  h+=`<div class="stats three"><div><b>${list.length}</b><small>Releases</small></div><div><b>${len?fmtLong(len):'—'}</b><small>Of Music</small></div><div><b>${ys.length?(Math.min(...ys)===Math.max(...ys)?Math.min(...ys):Math.min(...ys)+'–'+String(Math.max(...ys)).slice(-2)):'—'}</b><small>Years</small></div></div>`;
+  let last=null;
+  for(const a of list){if(a.type!==last){h+=`<div class="list-divider"><span>${TYPE_PL[a.type]}</span></div>`;last=a.type}h+=albRow(a)}
+  $('#ar-body').innerHTML=h;
+  if(arRen){const i=$('#ar-new');i.focus();i.onkeydown=e=>{if(e.key==='Enter')renameArtist()};$('#ar-save').onclick=renameArtist}
+}
+function renameArtist(){
+  const nv=$('#ar-new').value.trim();if(!nv)return;
+  const k=arName.toLowerCase();S.albums.forEach(a=>{if((a.artist||'Unknown Artist').trim().toLowerCase()===k)a.artist=nv});
+  arName=nv;arRen=false;save();renderArtist();render();if(stack.includes('#al-page'))renderAlbum();toast('Artist renamed');
+}
+$('#ar-ren').onclick=()=>{arRen=!arRen;renderArtist()};
+$('#ar-back').onclick=()=>closePage('#ar-page');
+$('#ar-body').addEventListener('click',e=>{const r=e.target.closest('.alb');if(r)openAlbum(r.dataset.id)});
+
+/* ---- main list taps ---- */
+$('#app').addEventListener('click',e=>{
+  const r=e.target.closest('.alb');if(r){openAlbum(r.dataset.id);return}
+  const c=e.target.closest('.art-card');if(c)openArtist(c.dataset.artist);
+});
+$$('#tabs .tab').forEach(t=>t.onclick=()=>{if(S.ui.tab!==t.dataset.tab)setTab(t.dataset.tab)});
+$('#add-card').onclick=()=>openEditor(null);
+
+/* ================= add / edit ================= */
+let ED=null,ED0='';
+const edSnap=()=>JSON.stringify({...ED,typeTouched:0});
+const edDirty=()=>ED&&edSnap()!==ED0;
+function blankAlbum(){return{id:null,type:'Album',title:'',artist:'',year:'',genre:'',label:'',cover:'',tracks:[],mbid:'',added:0}}
+function openEditor(id){
+  const a=id?S.albums.find(x=>x.id===id):null;
+  ED=a?JSON.parse(JSON.stringify(a)):blankAlbum();ED.typeTouched=!!a;ED0=edSnap();
+  $('#ed-title').textContent=a?'Edit Album':'Add an Album';$('#ed-save').textContent=a?'Save':'Add';
+  $('#ed-del').hidden=!a;$('#ed-del').classList.remove('armed');$('#ed-del').textContent='Delete Album';
+  $('#lk-album').value=a?'':'';$('#lk-artist').value='';$('#lk-res').innerHTML='';
+  setLkSt('Search MusicBrainz to fill everything in, or type it yourself below.');
+  fillForm();$('#ed-pv').classList.remove('in');openPage('#ed-page');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>$('#ed-pv').classList.add('in')));
+}
+function fillForm(){
+  $('#ed-t').value=ED.title;$('#ed-a').value=ED.artist;$('#ed-y').value=ED.year||'';$('#ed-g').value=ED.genre||'';$('#ed-l').value=ED.label||'';
+  $$('#ed-type button').forEach(b=>b.classList.toggle('on',b.dataset.t===ED.type));
+  renderSleeve();renderTracks();validate();
+}
+function renderSleeve(){
+  const s={Album:180,LP:180,EP:150,Single:120}[ED.type];
+  $('#ed-sw').style.setProperty('--s',s+'px');
+  $('#ed-sw').querySelector('.lbl').style.setProperty('--c',clothOf((ED.title||'')+'|'+(ED.artist||'')));
+  $('#ed-sleeve').innerHTML=artHTML(ED,'',`--sz:${s}px;`)+`<div class="hint">${ED.cover?'Change cover':'Add cover'}</div>`;
+  $('#ed-nophoto').disabled=!ED.cover;
+}
+function renderTracks(){
+  const c=clothOf((ED.title||'')+'|'+(ED.artist||''));
+  const discs=new Set(ED.tracks.map(x=>x.d||1)).size>1;
+  let h='',ld=null,n=0;
+  ED.tracks.forEach((x,i)=>{const d=x.d||1;if(discs&&d!==ld){h+=`<div class="disc-row">Disc ${d}</div>`;ld=d;n=0}n++;
+    h+=`<div class="trk" data-i="${i}"><span class="n" style="--c:${c}">${n}</span><input class="tt" value="${esc(x.t)}" placeholder="Track title" autocomplete="off"><input class="tl" value="${esc(fmtLen(x.len))}" placeholder="0:00" inputmode="numeric" autocomplete="off"><button type="button" class="x" aria-label="Remove track">×</button></div>`});
+  $('#ed-tracks').innerHTML=h;trkHead();
+}
+function trkHead(){const n=ED.tracks.length,l=total(ED);$('#ed-trk-h').textContent=n?`Tracks · ${n}${l?' · '+fmtLen(l):''}`:'Tracks'}
+function validate(){
+  const ok=!!(ED.title.trim()&&ED.artist.trim());$('#ed-save').disabled=!ok;
+  $('#fc-title').classList.toggle('bad',!ED.title.trim()&&$('#fc-title').dataset.tried==='1');
+  $('#fc-artist').classList.toggle('bad',!ED.artist.trim()&&$('#fc-artist').dataset.tried==='1');
+}
+$('#ed-type').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;ED.type=b.dataset.t;ED.typeTouched=true;
+  $$('#ed-type button').forEach(x=>x.classList.toggle('on',x===b));renderSleeve()});
+const bind=(sel,k,after)=>$(sel).addEventListener('input',e=>{ED[k]=e.target.value;after&&after();validate()});
+bind('#ed-t','title',()=>{renderSleeveSoft()});bind('#ed-a','artist',()=>{renderSleeveSoft()});
+bind('#ed-y','year');bind('#ed-g','genre');bind('#ed-l','label');
+$('#ed-y').addEventListener('input',e=>{const v=e.target.value.replace(/\D/g,'').slice(0,4);if(v!==e.target.value){e.target.value=v;ED.year=v}});
+let svT;function renderSleeveSoft(){clearTimeout(svT);svT=setTimeout(()=>{renderSleeve();renderTracksColor()},250)}
+function renderTracksColor(){const c=clothOf((ED.title||'')+'|'+(ED.artist||''));$$('#ed-tracks .n').forEach(n=>n.style.setProperty('--c',c))}
+['#ed-t','#ed-a'].forEach(s=>$(s).addEventListener('blur',e=>{e.target.closest('.fc').dataset.tried='1';validate()}));
+$('#ed-tracks').addEventListener('input',e=>{const r=e.target.closest('.trk');if(!r)return;const x=ED.tracks[+r.dataset.i];
+  if(e.target.classList.contains('tt'))x.t=e.target.value;else{x.len=parseLen(e.target.value);trkHead()}});
+$('#ed-tracks').addEventListener('change',e=>{if(e.target.classList.contains('tl')){const r=e.target.closest('.trk');const x=ED.tracks[+r.dataset.i];e.target.value=fmtLen(x.len)}});
+$('#ed-tracks').addEventListener('click',e=>{const b=e.target.closest('.x');if(!b)return;ED.tracks.splice(+b.closest('.trk').dataset.i,1);renderTracks()});
+$('#ed-addtrk').onclick=()=>{const d=ED.tracks.length?ED.tracks[ED.tracks.length-1].d||1:1;ED.tracks.push({t:'',len:0,d});renderTracks();
+  const ins=$$('#ed-tracks .tt');ins[ins.length-1].focus()};
+$('#ed-sleeve').onclick=()=>$('#ed-file').click();$('#ed-photo').onclick=()=>$('#ed-file').click();
+$('#ed-nophoto').onclick=()=>{ED.cover='';renderSleeve()};
+$('#ed-file').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{ED.cover=await shrink(URL.createObjectURL(f),500);renderSleeve()}catch(_){toast('Couldn’t open that picture')}});
+function shrink(src,max){return new Promise((ok,no)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>{
+  const k=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.round(im.naturalWidth*k),h=Math.round(im.naturalHeight*k),
+    c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);
+  try{ok(c.toDataURL('image/jpeg',.85))}catch(err){no(err)}};im.onerror=no;im.src=src})}
+$('#ed-cancel').onclick=()=>{if(edDirty()&&!confirm('Discard this album?'))return;closePage('#ed-page')};
+$('#ed-save').onclick=()=>{
+  if($('#ed-save').disabled)return;
+  const a={...ED};delete a.typeTouched;
+  a.title=a.title.trim();a.artist=a.artist.trim();a.genre=(a.genre||'').trim();a.label=(a.label||'').trim();
+  a.tracks=a.tracks.filter(x=>(x.t||'').trim()||x.len).map(x=>({t:(x.t||'').trim(),len:x.len||0,d:x.d||1}));
+  if(a.id){const i=S.albums.findIndex(x=>x.id===a.id);S.albums[i]=a;toast('Saved')}
+  else{a.id=uid();a.added=Date.now();S.albums.push(a);toast(`Added “${a.title}”`)}
+  ED0=edSnap();save();render();closePage('#ed-page');
+  if(stack.includes('#al-page'))renderAlbum();if(stack.includes('#ar-page'))renderArtist();
+};
+let delT;$('#ed-del').onclick=()=>{const b=$('#ed-del');
+  if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Tap again to delete';clearTimeout(delT);delT=setTimeout(()=>{b.classList.remove('armed');b.textContent='Delete Album'},3000);return}
+  S.albums=S.albums.filter(x=>x.id!==ED.id);ED0=edSnap();save();render();closePage('#ed-page');
+  setTimeout(()=>{if(stack.includes('#al-page'))closePage('#al-page');if(stack.includes('#ar-page'))renderArtist()},60);toast('Album deleted')};
+
+/* ---- the artist list (picker) ---- */
+$('#ed-alist').onclick=()=>{$('#ap-new').value='';renderAp();openPage('#ap-page')};
+function renderAp(){
+  const cur=(ED.artist||'').trim().toLowerCase();
+  const list=[...artistMap().values()].sort((a,b)=>sortKey(a.name).localeCompare(sortKey(b.name)));
+  $('#ap-list').innerHTML=list.length?list.map(x=>`<button type="button" class="so-opt ${x.name.toLowerCase()===cur?'on':''}" data-n="${esc(x.name)}"><span class="tx"><b>${esc(x.name)}</b><span>${esc(typeCounts(x.albums))}</span></span></button>`).join('')
+    :`<div class="empty">No artists yet — add one above.</div>`;
+}
+function useArtist(n){n=n.trim();if(!n)return;ED.artist=n;$('#ed-a').value=n;validate();renderSleeve();renderTracksColor();closePage('#ap-page')}
+$('#ap-list').addEventListener('click',e=>{const b=e.target.closest('[data-n]');if(b)useArtist(b.dataset.n)});
+$('#ap-use').onclick=()=>useArtist($('#ap-new').value);
+$('#ap-new').addEventListener('keydown',e=>{if(e.key==='Enter')useArtist(e.target.value)});
+$('#ap-done').onclick=()=>closePage('#ap-page');
+
+/* ================= MusicBrainz lookup ================= */
+const MB='https://musicbrainz.org/ws/2/';
+let mbAt=0,mbChain=Promise.resolve();
+// MusicBrainz asks for no more than one request a second, so calls wait their turn
+function mb(path){
+  const run=async()=>{
+    for(let tries=0;;tries++){
+      const w=mbAt+1100-Date.now();if(w>0)await sleep(w);mbAt=Date.now();
+      const r=await fetch(MB+path+(path.includes('?')?'&':'?')+'fmt=json',{headers:{Accept:'application/json'}});
+      if(r.status===503&&tries<2){await sleep(1500);continue}
+      if(!r.ok)throw new Error('MusicBrainz said '+r.status);
+      return r.json();
+    }
+  };
+  const p=mbChain.then(run,run);mbChain=p.catch(()=>{});return p;
+}
+const luc=s=>s.replace(/([+\-&|!(){}\[\]^"~*?:\\\/])/g,'\\$1');
+const creditOf=ac=>(ac||[]).map(c=>(c.name||c.artist?.name||'')+(c.joinphrase||'')).join('').trim();
+const mbType=t=>t==='EP'?'EP':t==='Single'?'Single':'Album';
+const caa=id=>`https://coverartarchive.org/release-group/${id}/front-250`;
+let LK=[],lkQ=null,lkOff=0;
+function setLkSt(m,err){const s=$('#lk-st');s.innerHTML=m;s.classList.toggle('err',!!err);s.hidden=!m}
+async function lookup(more){
+  if(!more){
+    const al=$('#lk-album').value.trim(),ar=$('#lk-artist').value.trim();
+    if(!al&&!ar){setLkSt('Type an album name, an artist, or both.',true);return}
+    const parts=[];if(al)parts.push(`releasegroup:(${luc(al)})`);if(ar)parts.push(`artist:(${luc(ar)})`);
+    if(ED.typeTouched&&ED.type!=='LP')parts.push(`primarytype:${ED.type.toLowerCase()}`);
+    lkQ={q:parts.join(' AND '),browse:!al};lkOff=0;LK=[];$('#lk-res').innerHTML='';
+  }
+  setLkSt('<span class="spin"></span>&nbsp; Searching MusicBrainz…');$('#lk-go').disabled=true;
+  try{
+    const j=await mb(`release-group/?query=${encodeURIComponent(lkQ.q)}&limit=25&offset=${lkOff}`);
+    let got=j['release-groups']||[];
+    if(lkQ.browse)got.sort((a,b)=>String(a['first-release-date']||'9999').localeCompare(String(b['first-release-date']||'9999')));
+    LK=LK.concat(got);lkOff+=got.length;lkQ.count=j.count||0;
+    renderLk();setLkSt(LK.length?'':`Nothing found. Try fewer words, check the spelling${ED.typeTouched&&ED.type!=='LP'?`, or pick a different type (searching ${TYPE_PL[ED.type]} only)`:''}.`,!LK.length);
+  }catch(e){setLkSt(navigator.onLine?`Couldn’t reach MusicBrainz (${esc(e.message)}). Try again in a moment.`:'You’re offline. Looking up needs a connection — you can still type it in yourself.',true)}
+  finally{$('#lk-go').disabled=false}
+}
+function renderLk(){
+  const rows=LK.map((g,i)=>{
+    const y=(g['first-release-date']||'').slice(0,4),sec=(g['secondary-types']||[]).join(', '),ar=creditOf(g['artist-credit']);
+    return `<button type="button" class="lk-row" data-i="${i}"><div class="art ph" style="--c:${clothOf(g.title+'|'+ar)}"><span>${esc(initials(g.title))}</span>${DISC_SVG}<img alt="" loading="lazy" src="${caa(g.id)}" onerror="this.remove()"></div><span class="tx"><b>${esc(g.title)}</b><small>${esc([ar,y,sec].filter(Boolean).join(' · '))}</small></span><span class="tg">${esc(g['primary-type']||'Other')}</span></button>`;
+  }).join('');
+  $('#lk-res').innerHTML=LK.length?`<div class="sr-sec">Results<span>${lkQ.count>LK.length?`${LK.length} of ${lkQ.count}`:LK.length}</span></div>${rows}${lkQ.count>LK.length?'<button type="button" class="lk-more" id="lk-more">Show more</button>':''}`:'';
+}
+$('#lk-go').onclick=()=>lookup(false);
+['#lk-album','#lk-artist'].forEach(s=>$(s).addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();lookup(false)}}));
+$('#lk-res').addEventListener('click',async e=>{
+  if(e.target.closest('#lk-more')){lookup(true);return}
+  const r=e.target.closest('.lk-row');if(!r||r.classList.contains('busy'))return;
+  const g=LK[+r.dataset.i];r.classList.add('busy');const tg=r.querySelector('.tg'),was=tg.innerHTML;tg.innerHTML='<span class="spin"></span>';
+  try{await pickRG(g);$('#lk-res').innerHTML='';setLkSt(`Filled in from MusicBrainz. Check it over, then tap <b>${ED.id?'Save':'Add'}</b>.`);
+    $('#ed-page').scrollTo({top:0,behavior:'smooth'})}
+  catch(err){tg.innerHTML=was;r.classList.remove('busy');setLkSt(`Couldn’t load that one (${esc(err.message)}). Try again.`,true)}
+});
+// a release group is the album in general; its releases are the editions. The tracklist comes from the
+// earliest official edition (the original), genres from the album and the edition
+async function pickRG(g){
+  const rg=await mb(`release-group/${g.id}?inc=genres+tags+releases+artist-credits`);
+  const rels=(rg.releases||[]).slice().sort((a,b)=>(a.status==='Official'?0:1)-(b.status==='Official'?0:1)||String(a.date||'9999').localeCompare(String(b.date||'9999')));
+  let rel=null;
+  if(rels[0])rel=await mb(`release/${rels[0].id}?inc=recordings+labels+genres`);
+  const tracks=[];
+  (rel?.media||[]).forEach((m,mi)=>(m.tracks||[]).forEach(t=>tracks.push({t:t.title||t.recording?.title||'',len:Math.round((t.length||t.recording?.length||0)/1000),d:m.position||mi+1})));
+  const gen=[...(rg.genres||[]),...(rel?.genres||[])].sort((a,b)=>(b.count||0)-(a.count||0));
+  const tags=(rg.tags||[]).sort((a,b)=>(b.count||0)-(a.count||0));
+  const genre=(gen[0]?.name||tags[0]?.name||'').replace(/\b\p{L}/gu,c=>c.toUpperCase());
+  const label=(rel?.['label-info']||[]).map(x=>x.label?.name).filter(Boolean)[0]||'';
+  ED.title=rg.title||g.title;ED.artist=creditOf(rg['artist-credit']||g['artist-credit'])||ED.artist;
+  ED.year=(rg['first-release-date']||g['first-release-date']||'').slice(0,4);ED.genre=genre;ED.label=label;ED.tracks=tracks;ED.mbid=g.id;
+  if(!(ED.typeTouched&&ED.type==='LP'))ED.type=mbType(rg['primary-type']||g['primary-type']);   // a chosen LP stays an LP
+  // the cover: kept in the app as a small picture so it shows offline; if that isn't allowed, linked instead
+  let cover='';
+  try{cover=await shrink(`https://coverartarchive.org/release-group/${g.id}/front-500`,500)}
+  catch(_){try{if(rel)cover=await shrink(`https://coverartarchive.org/release/${rel.id}/front-500`,500)}catch(__){}}
+  if(!cover&&await imgOk(caa(g.id)))cover=caa(g.id);
+  ED.cover=cover;
+  $('#fc-title').dataset.tried='';$('#fc-artist').dataset.tried='';fillForm();
+}
+function imgOk(src){return new Promise(ok=>{const im=new Image();im.onload=()=>ok(true);im.onerror=()=>ok(false);im.src=src;setTimeout(()=>ok(false),8000)})}
+
+/* ================= backup ================= */
+async function exportBackup(){
+  const data=JSON.stringify({app:'my-music-chronography',v:1,saved:new Date().toISOString(),albums:S.albums});
+  const name=`my-music-chronography-backup-${new Date().toISOString().slice(0,10)}.json`;
+  const file=new File([data],name,{type:'application/json'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})&&/Android|iPhone|iPad/i.test(navigator.userAgent)){
+    try{await navigator.share({files:[file],title:'My Music Chronography backup'});return}catch(e){if(e.name==='AbortError')return}}
+  const u=URL.createObjectURL(file),l=document.createElement('a');l.href=u;l.download=name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);
+  toast('Backup saved');
+}
+$('#imp-file').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const j=JSON.parse(await f.text());const list=Array.isArray(j)?j:j.albums;if(!Array.isArray(list))throw 0;
+    let add=0,upd=0;for(const a of list){if(!a||!a.title)continue;a.type=TYPES.includes(a.type)?a.type:'Album';a.tracks=Array.isArray(a.tracks)?a.tracks:[];a.added=a.added||Date.now();a.id=a.id||uid();
+      const i=S.albums.findIndex(x=>x.id===a.id);if(i>-1){S.albums[i]=a;upd++}else{S.albums.push(a);add++}}
+    save();render();toast(`Imported: ${add} added, ${upd} updated`)}
+  catch(_){toast('That file isn’t a My Music Chronography backup')}});
+
+/* ================= start ================= */
+(async()=>{
+  await Store.open();
+  const d=await Store.get();
+  if(d&&Array.isArray(d.albums)){S.albums=d.albums;if(d.ui)S.ui={...S.ui,...d.ui,lib:{...S.ui.lib,...d.ui.lib},art:{...S.ui.art,...d.ui.art}}}
+  setTab(S.ui.tab||'library');
+  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
