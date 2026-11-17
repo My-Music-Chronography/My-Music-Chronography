@@ -320,6 +320,137 @@
 </style>
 </head>
 <body>
+<!-- The opening: picks up exactly where Android's own launch screen (the icon on tan) leaves off. Two records from the pile,
+     chosen at random, swing out to frame the screen top and bottom; the other two pause half off the sides, then become
+     the O's of CHRONOGRAPHY as the name slams in. About 5 seconds, every time the app opens; tap to skip. -->
+<style>
+  #spl{position:fixed; inset:0; z-index:1000; background:#efeadf; overflow:hidden; transition:opacity .45s ease;}
+  #spl.gone{opacity:0; pointer-events:none;}
+  #spl svg{position:absolute; inset:0; width:100%; height:100%; display:block;}
+</style>
+<div id="spl"><svg id="spl-svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<script>
+(()=>{'use strict';
+const NS='http://www.w3.org/2000/svg';
+const C={red:'#7a2f2b',blue:'#2e3d6b',teal:'#2b5752',olive:'#8a7a33',plum:'#66304c',rust:'#86452b',wood:'#8a6a3f',woodD:'#6b4a32',cream:'#e3ddce',bg:'#efeadf',ink:'#2b2620',muted:'#8a8378'};
+const LABELS=[C.red,C.blue,C.teal,C.olive,C.plum,C.rust];
+const SERIF="Georgia,'Times New Roman',serif",SANS='Arial,Helvetica,sans-serif',MONO="'Courier New',Courier,monospace";
+const TAG='COLLECT · LISTEN · REMEMBER';
+/* ---------- small helpers ---------- */
+let UID=0;const uid=p=>p+(++UID);
+function mk(tag,at,par){const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);if(par)par.appendChild(e);return e}
+function tx(par,str,at){const e=mk('text',at,par);e.textContent=str;return e}
+const tf=(e,x,y,r=0,sx=1,sy=sx)=>e.setAttribute('transform',`translate(${x} ${y}) rotate(${r}) scale(${sx} ${sy})`);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const io=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2, out=t=>1-Math.pow(1-t,3), inn=t=>t*t*t, back=t=>{const c=1.7;return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2)};
+const lerp=(a,b,k)=>a+(b-a)*k;
+const bounce=t=>{const n=7.5625,d=2.75;if(t<1/d)return n*t*t;if(t<2/d)return n*(t-=1.5/d)*t+.75;if(t<2.5/d)return n*(t-=2.25/d)*t+.9375;return n*(t-=2.625/d)*t+.984375};
+function meshDef(defs,col='#000',op=.55,size=9){const id=uid('m');const p=mk('pattern',{id,patternUnits:'userSpaceOnUse',width:size,height:size,patternTransform:'rotate(45)'},defs);
+  mk('path',{d:`M0 0H${size}M0 0V${size}`,stroke:col,'stroke-width':1.6,'stroke-opacity':op},p);return `url(#${id})`}
+// a record centered on 0,0: g (place/scale it) > sp (spin it) > disc, grooves, shine, label, hole
+function recEl(par,r,label,o={}){
+  const g=mk('g',{},par),sp=mk('g',{},g),sw=o.sw??Math.max(8,r*.1);
+  mk('circle',{r,fill:'#1c1916',stroke:'#000','stroke-width':sw},sp);
+  for(let k=.88;k>.48;k-=.1)mk('circle',{r:r*k,fill:'none',stroke:'#3a3430','stroke-width':Math.max(1.5,r*.018)},sp);
+  let shine=null;if(o.shine!==false){const a=r*.62;shine=mk('path',{d:`M${a*Math.cos(-2.2)} ${a*Math.sin(-2.2)} A${a} ${a} 0 0 1 ${a*Math.cos(-1.35)} ${a*Math.sin(-1.35)}`,fill:'none',stroke:'#fff','stroke-opacity':.22,'stroke-width':r*.07,'stroke-linecap':'round'},sp)}
+  const lab=mk('circle',{r:r*.36,fill:label,stroke:'#000','stroke-width':Math.max(5,r*.06)},sp);
+  const hole=mk('circle',{r:Math.max(4,r*.06),fill:C.bg},sp);
+  return{g,sp,lab,hole,r,shine};
+}
+// where each letter of a word falls, so letters can be animated one by one
+function charPos(par,str,size,font,weight,ls=0,fit=0){
+  const m=mk('text',{x:0,y:0,'font-size':size,'font-family':font,'font-weight':weight,'letter-spacing':ls},par);m.textContent=str;
+  let w=m.getComputedTextLength()||str.length*size*.64;
+  if(fit&&w>fit){size*=fit/w;m.setAttribute('font-size',size);w=m.getComputedTextLength()||fit}
+  const xs=[];for(let i=0;i<str.length;i++){try{const a=m.getStartPositionOfChar(i).x,b=m.getEndPositionOfChar(i).x;xs.push([a,b])}catch(e){xs.push([i*w/str.length,(i+1)*w/str.length])}}
+  m.remove();return{size,w,xs};
+}
+const wipe=(defs)=>{const id=uid('w'),cp=mk('clipPath',{id},defs),r=mk('rect',{x:-5000,y:-5000,width:0,height:10000},cp);return{url:`url(#${id})`,r}};
+
+
+/* 8 — records peel off the pile and flip face-on; two become the O's of CHRONOGRAPHY,
+   the other two swing out to frame the screen: one as a giant half-record across the top, one across the bottom */
+const IC=({name:'Record Stack',note:'Two random records frame the screen top and bottom; the other two become the O’s.',style:'Records as the O’s, a third of a record framing top and bottom',
+build(root,U,defs){const o={};const lay=[[376,C.teal,-34],[292,C.olive,30],[208,C.blue,-22],[124,C.red,14]];
+  o.layer=mk('g',{},root);   // the records' own layer, under the words
+  o.sl=lay.map(([y,c,dx])=>{const x=256+dx,g=mk('g',{},o.layer);
+    const band=mk('path',{fill:'#1c1916',stroke:'#000','stroke-width':10,'stroke-linejoin':'round'},g);
+    const f=mk('g',{},g);const r=recEl(f,150,c,{sw:10});
+    return{g,band,f,r,x,y}});
+  // a new shuffle every time it plays: the first two frame the screen (top, bottom), the other two become the O's
+  const order=[0,1,2,3];for(let i=3;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]]}
+  o.role={};o.role[order[0]]='top';o.role[order[1]]='bottom';o.role[order[2]]='o1';o.role[order[3]]='o2';
+  o.vy=Math.random()<.5?-1:1;   // which side record pauses above the middle and which below (always opposite)
+  const Y=316,cp=charPos(root,'CHRONOGRAPHY',112,SERIF,700,0,(U.r-U.l)-60),x0=256-cp.w/2;o.Y=Y;o.L=[];o.O=[];
+  'CHRONOGRAPHY'.split('').forEach((ch,i)=>{const [a,b]=cp.xs[i],cx=x0+(a+b)/2;if(ch==='O'){o.O.push({cx,cy:Y-cp.size*.35,r:cp.size*.335});return}
+    o.L.push({cx,e:tx(root,ch,{x:cx,y:Y,'text-anchor':'middle','font-family':SERIF,'font-weight':700,'font-size':cp.size,fill:C.ink,opacity:0})})});
+  o.my=tx(root,'MY  MUSIC',{x:256,y:Y-cp.size-22,'text-anchor':'middle','font-family':SANS,'font-weight':700,'font-size':30,'letter-spacing':16,fill:C.red,opacity:0});
+  o.tag=tx(root,TAG,{x:256,y:Y+64,'text-anchor':'middle','font-family':SANS,'font-weight':700,'font-size':19,'letter-spacing':5,fill:C.muted,opacity:0});
+  o.big=((U.r-U.l)/2)/150*1.04;   // a record as wide as the screen; a third of it shows
+  return o},
+// one record: its face squashed to sy (40/150 lying flat, 1 face-on); the edge's thickness thins away as it turns to face us
+setRec(s,x,y,sc,sy,rot){const ry=150*sy,th=20*Math.max(0,1-(sy-40/150)/(1-40/150)*1.6);
+  s.band.setAttribute('d',`M-150 0 A150 ${ry} 0 0 0 150 0 V${th} A150 ${ry} 0 0 1 -150 ${th} Z`);s.band.setAttribute('opacity',th>.5?1:0);
+  s.g.setAttribute('transform',`translate(${x} ${y}) scale(${sc})`);s.f.setAttribute('transform',`scale(1 ${sy})`);s.r.sp.setAttribute('transform',`rotate(${rot})`)},
+frame(t,o,U){
+  // first two swing out to frame the screen, a third of each showing; then the other two flip over to become the O's
+  const flat=40/150,big=o.big;
+  // Each record follows one smooth curve: out sideways from its place in the pile (so it never cuts across the ones above it),
+  // then round to its spot. Position, size, the flip to face-on and the spin all run off the same eased clock,
+  // so nothing changes speed with a jolt. It comes to the front only once it's well clear of the pile.
+  const ss=x=>x*x*(3-2*x);                                    // smoothstep
+  const spinFrom=(t,st,w,ramp=.5)=>{const d=t-st;return d<=0?0:d<ramp?w*d*d/(2*ramp):w*(d-ramp/2)};   // a steady spin that eases in
+  const bez=(a,b,c,d,u)=>{const v=1-u;return v*v*v*a+3*v*v*u*b+3*v*u*u*c+u*u*u*d};
+  const ST={top:.25,bottom:.4,o1:1.0,o2:1.0};
+  o.sl.forEach((s,i)=>{const role=o.role[i],frame=role==='top'||role==='bottom';
+    const st=ST[role],side=(role==='top'||role==='o2')?1:-1;
+    // the pile settles: when a record under this one leaves, this one eases down into the gap
+    let y0=s.y;for(let j=0;j<i;j++){const d=ST[o.role[j]]+.3;y0+=84*io(P(t,d,d+.5))}
+    let x=s.x,y=y0,sc=1,sy=flat,rot=0;
+    if(frame){
+      // out to the side, then a long run straight up (or down) still lying flat; it only flips face-on and grows near the edge
+      const top=role==='top',u=io(P(t,st,st+1.15)),R=150*big,ty=top?U.t-R*.25:U.b+R*.25;   // a third and a sliver: just enough to see the label's color
+      x=bez(s.x,s.x+side*300,256+side*40,256,u);y=bez(y0,y0+(top?-40:40),ty+(top?160:-160),ty,u);
+      const f=ss(P(u,.5,.95));sc=lerp(1,big,ss(P(u,.35,1))*.85+f*.15);sy=lerp(flat,1,f);
+      // the record's own gleam (there from the icon's first frame) keeps spinning round, through the part that shows:
+      // the top record turns one way, the bottom the other, so their gleams sweep by in opposite directions
+      rot=(top?-1:1)*spinFrom(t,st,160)}
+    else{
+      // both swing out to the sides together, flipping face-on and growing, and sit partly off the screen like the top and
+      // bottom ones (one above the middle, one below, opposite each other); then they sweep back in, shrinking into their O's
+      const tg=o.O[role==='o1'?0:1],a=io(P(t,st,st+.65)),b=io(P(t,st+.8,st+1.5));
+      const halfW=(U.r-U.l)/2,Rs=halfW*.5,scS=Rs/150,cy=(U.t+U.b)/2;
+      const sxp=side>0?U.r+Rs*.24:U.l-Rs*.24,syp=cy+(role==='o1'?o.vy:-o.vy)*Math.min(150,(U.b-U.t)*.1);
+      if(b<=0){x=bez(s.x,s.x+side*200,sxp-side*60,sxp,a);y=bez(y0,y0,syp,syp,a);sc=lerp(1,scS,ss(a));sy=lerp(flat,1,ss(P(a,.15,.85)));rot=side*200*a}
+      else{x=bez(sxp,sxp-side*140,tg.cx+side*140,tg.cx,b);y=bez(syp,syp,tg.cy-90,tg.cy,b);sc=lerp(scS,tg.r/150,ss(b));sy=1;rot=side*(200+300*b)}
+      rot+=spinFrom(t,st+.5,90,.6)}
+    if(Math.abs(x-s.x)>260&&!s.up){s.up=1;o.layer.appendChild(s.g)}
+    if(t<st&&s.up)s.up=0;
+    this.setRec(s,x,y,sc,sy,rot);
+  });
+  o.L.forEach((l,i)=>{const q=P(t,2.3+i*.05,2.72+i*.05),s=lerp(1.7,1,out(q));l.e.setAttribute('opacity',q);l.e.setAttribute('transform',`translate(${l.cx} ${o.Y}) scale(${s}) translate(${-l.cx} ${-o.Y})`)});
+  o.my.setAttribute('opacity',P(t,3.15,3.5));o.tag.setAttribute('opacity',P(t,3.4,3.8));
+}});
+
+const spl=document.getElementById('spl'),svg=document.getElementById('spl-svg');let raf=0,T0=0,o=null,U=null,ended=false;
+// sized and placed to match Chrome's own launch screen: the icon is 71.1% of the screen's width, centered.
+// Installed, the page starts below the status bar, so the picture shifts to sit where Chrome's was
+function start(){
+  const W=innerWidth,H=innerHeight,iw=Math.min(W,H/1.2)*.711,s=iw/512;
+  const app=matchMedia('(display-mode: standalone)').matches,shift=app?Math.max(0,(screen.height-H)/2-24):0;
+  U={l:-(W-iw)/2/s,r:512+(W-iw)/2/s,t:-((H-iw)/2+shift)/s,b:512+((H-iw)/2-shift)/s};
+  svg.setAttribute('viewBox',`${U.l} ${U.t} ${U.r-U.l} ${U.b-U.t}`);
+  const defs=mk('defs',{},svg),root=mk('g',{},svg);o=IC.build(root,U,defs);IC.frame(0,o,U);
+  raf=requestAnimationFrame(tick);
+}
+function tick(now){if(!T0)T0=now;const t=(now-T0)/1000;IC.frame(t,o,U);
+  if(t>4.7){end();return}raf=requestAnimationFrame(tick)}
+function end(){if(ended)return;ended=true;spl.classList.add('gone');setTimeout(()=>{cancelAnimationFrame(raf);spl.remove()},470)}
+spl.addEventListener('click',end);   // tap skips
+start();
+})();
+</script>
 
 <div id="app-header">
   <div id="tabs">

@@ -11,6 +11,10 @@ Album details come from [MusicBrainz](https://musicbrainz.org) and covers from t
 
 Everything is stored in your browser on this device. Use **Data → Save Backup** to keep a copy, and import it on another device or browser.
 
+## Opening animation
+
+Each time the app opens, it picks up from the phone's own launch screen (the icon) and plays a short record-stack animation into the name. Tap to skip.
+
 ## Works offline
 
 After the first visit, the service worker (`sw.js`) keeps a copy of the app, so it opens with no connection. Covers are saved inside the app when you add an album. Looking albums up needs a connection.
