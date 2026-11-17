@@ -442,17 +442,56 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add
 
 /* ================= storage: IndexedDB, with localStorage as a fallback ================= */
 const KEY='spin-tracker';
+// Saved two ways, every time:
+//  • localStorage: everything except the pictures (the way Stack Tracker and Pod Tracer save; small and dependable)
+//  • IndexedDB: everything, pictures included
+// Each write is checked to have finished. On start, the newer of the two is used, with pictures filled in from IndexedDB.
 const Store={
   db:null,
-  open(){return new Promise(ok=>{try{const r=indexedDB.open(KEY,1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');
-    r.onsuccess=()=>{this.db=r.result;ok()};r.onerror=()=>ok()}catch(e){ok()}})},
-  get(){return new Promise(ok=>{if(!this.db){try{ok(JSON.parse(localStorage.getItem(KEY)))}catch(e){ok(null)}return}
-    const q=this.db.transaction('kv').objectStore('kv').get('state');q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null)})},
-  set(v){if(!this.db){try{localStorage.setItem(KEY,JSON.stringify(v))}catch(e){toast('Couldn’t save: storage is full')}return}
-    this.db.transaction('kv','readwrite').objectStore('kv').put(v,'state')}
+  open(){return new Promise(ok=>{let done=false;const fin=()=>{if(!done){done=true;ok()}};setTimeout(fin,4000);
+    try{const r=indexedDB.open(KEY,1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');
+      r.onsuccess=()=>{const db=r.result;this.db=db;db.onclose=()=>{if(this.db===db)this.db=null};db.onversionchange=()=>{db.close();if(this.db===db)this.db=null};fin()};
+      r.onerror=fin;r.onblocked=fin}catch(e){fin()}})},
+  async idbGet(){if(!this.db)await this.open();if(!this.db)return null;
+    return new Promise(ok=>{try{const q=this.db.transaction('kv').objectStore('kv').get('state');q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null)}catch(e){this.db=null;ok(null)}})},
+  async idbSet(v){
+    // the browser closes the connection while the app sits in the background, so a failed write reopens and tries once more
+    for(let i=0;i<2;i++){if(!this.db)await this.open();if(!this.db)return false;
+      try{if(await new Promise(res=>{const tx=this.db.transaction('kv','readwrite');tx.objectStore('kv').put(v,'state');tx.oncomplete=()=>res(true);tx.onerror=tx.onabort=()=>res(false)}))return true}
+      catch(e){this.db=null}}
+    return false},
+  lsGet(){try{return JSON.parse(localStorage.getItem(KEY))}catch(e){return null}},
+  lsSet(v){const noPic=x=>typeof x==='string'&&x.startsWith('data:')?'':x;
+    const slim={...v,albums:v.albums.map(a=>({...a,cover:noPic(a.cover)})),
+      artists:Object.fromEntries(Object.entries(v.artists||{}).map(([k,e])=>[k,{...e,photo:noPic(e.photo)}]))};
+    try{localStorage.setItem(KEY,JSON.stringify(slim));return true}catch(e){return false}},
+  async load(){
+    const [idb,ls]=[await this.idbGet(),this.lsGet()];
+    const ok=x=>x&&Array.isArray(x.albums);
+    if(!ok(ls))return ok(idb)?idb:null;
+    if(!ok(idb))return ls;
+    if((idb.savedAt||0)>=(ls.savedAt||0))return idb;
+    // the localStorage copy is newer: use it, with the pictures from IndexedDB
+    const cov=new Map(idb.albums.map(a=>[a.id,a.cover]));
+    ls.albums.forEach(a=>{if(!a.cover&&cov.get(a.id))a.cover=cov.get(a.id)});
+    for(const [k,e] of Object.entries(ls.artists||{}))if(!e.photo&&idb.artists?.[k]?.photo&&!e.none)e.photo=idb.artists[k].photo;
+    return ls;
+  }
 };
 const S={albums:[], artists:{}, ui:{tab:'artists', open:[], lib:{sort:'added',dir:-1,filter:'All'}, art:{sort:'name',dir:1,filter:'All'}}};
-let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>Store.set(JSON.parse(JSON.stringify(S))),150)}
+let LOADED=false,saveT,warned=false;
+// nothing is written until the saved data has been read back in, so an empty start can never overwrite it
+function save(){if(!LOADED)return;clearTimeout(saveT);saveT=setTimeout(flush,250)}
+async function flush(){
+  clearTimeout(saveT);saveT=null;if(!LOADED)return;
+  const v=JSON.parse(JSON.stringify(S));v.savedAt=Date.now();
+  const okL=Store.lsSet(v),okI=await Store.idbSet(v);
+  if(!okL&&!okI)toast('⚠ Couldn’t save on this device. Use Data → Save Backup now.');
+  else if(!okI&&!warned){warned=true;toast('⚠ Saved, but this browser won’t keep covers and photos.')}
+}
+// save right away when the app is put away, rather than waiting
+addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&saveT)flush()});
+addEventListener('pagehide',()=>{if(saveT)flush()});
 
 /* ================= header / footer sizes ================= */
 function measure(){
@@ -1001,10 +1040,13 @@ $('#imp-file').addEventListener('change',async e=>{const f=e.target.files[0];e.t
 
 /* ================= start ================= */
 (async()=>{
-  await Store.open();
-  const d=await Store.get();
+  const d=await Store.load();
   if(d&&Array.isArray(d.albums)){S.albums=d.albums;S.artists=d.artists||{};if(d.ui)S.ui={...S.ui,...d.ui,lib:{...S.ui.lib,...d.ui.lib},art:{...S.ui.art,...d.ui.art}}}
+  LOADED=true;
+  // ask the browser to treat this app's storage as permanent (not cleared to free up space)
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
   setTab(['artists','library','data'].includes(S.ui.tab)?S.ui.tab:'artists');
+  if(S.albums.length)flush();   // writes both copies, so data saved by the old version gets its localStorage copy too
   for(const x of artistMap().values())autoPhoto(x.name);   // any artist still without a photo (tried at most once a week)
   if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
