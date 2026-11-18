@@ -72,6 +72,7 @@
     background:#5b6633; color:#fff; font:700 min(1rem, 4vw)/1 Georgia,'Times New Roman',serif; letter-spacing:.14em; text-transform:uppercase; user-select:none;}
   .add-card b{font-size:1.15em;}
   .add-card:active{filter:brightness(.92);}
+  .add-card[hidden]{display:none;}
 
   /* ---- shared GT50 pieces ---- */
   .list-divider{display:flex; align-items:center; gap:10px; height:45px; padding:0 4px;}
@@ -318,6 +319,57 @@
   .bar i{display:block; height:12px; border:2px solid #000; border-radius:6px; background:var(--unread); overflow:hidden;}
   .bar i em{display:block; height:100%; background:var(--c);}
   .bar b{text-align:right; color:var(--muted);}
+  /* ---- Data: Stats | Backup | Export | Import, laid out like Pod Tracer's Data page ---- */
+  #row2d{display:flex;} #row2d[hidden]{display:none;} #row2d .seg{flex:1; height:42px;}
+  body.dt-fit #app{height:calc(100dvh - var(--header-h,90px) - var(--footer-h,60px) - 8px);}
+  .dt-card{display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; flex:none;
+    height:45px; padding:0 8px; background:var(--panel); border:3px solid #000; border-radius:8px; font:.62rem/1.15 Arial,sans-serif; color:var(--muted);}
+  button.dt-card{width:100%; margin:0; cursor:pointer;} button.dt-card:active{background:var(--bg);}
+  .dt-card b{font:600 .9rem Georgia,serif; color:var(--ink); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .dt-card.error b{color:var(--red);}
+  .dt-card.when{flex-direction:row; align-items:stretch; padding:0;}
+  .dt-card.when > span{flex:1 1 0; min-width:0; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:0 8px;}
+  .dt-card.when > span + span{border-left:3px solid #000;}
+  .dt-card.how{gap:3px; height:auto; min-height:45px; padding:6px 8px; font-size:min(.62rem,2.55vw); color:var(--ink);}
+  .dt-card.bk-loc{flex-direction:row; align-items:stretch; padding:0; overflow:hidden;}
+  .dt-card.bk-loc button{margin:0; border:0; border-radius:0; background:transparent; cursor:pointer; font-family:Arial,sans-serif;}
+  #bk-loc-pick{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:0 8px; font-size:.62rem; color:var(--muted); line-height:1.15;}
+  #bk-loc-pick b{max-width:100%;}
+  #bk-loc-clear{flex:0 0 39px; padding:0; border-left:3px solid #000 !important; color:var(--red); font-size:1rem; font-weight:700;}
+  .dt-split{display:flex; height:45px; flex:none; border:3px solid #000; border-radius:8px; overflow:hidden; background:var(--panel);}
+  .dt-split button{flex:1; margin:0; padding:0; border:none; border-radius:0; background:var(--panel); color:var(--ink); font:600 .78rem Arial,sans-serif; letter-spacing:.3px;}
+  .dt-split button + button{border-left:3px solid #000;}
+  .dt-split button.on{background:var(--ink); color:#fff;}
+  .dt-split .wk{display:flex; flex-direction:column; align-items:stretch; justify-content:center;}
+  .dt-split .wk-days{display:none;}
+  .dt-split .wk.on .wk-label{flex:1; display:flex; align-items:center; justify-content:center; font-size:.72rem;}
+  .dt-split .wk.on .wk-days{display:flex; flex:1; border-top:1.5px solid rgba(255,255,255,.28);}
+  .dt-split .wk-days i{flex:1; display:flex; align-items:center; justify-content:center; font-style:normal; font-size:.6rem; font-weight:700;}
+  .dt-split .wk-days i + i{border-left:1.5px solid rgba(255,255,255,.28);}
+  .dt-split .wk-days i.on{background:#5a4c40;}
+  .dt-text{flex:1; min-height:120px; width:100%; resize:none; margin:0; padding:8px; background:var(--panel); color:var(--ink);
+    border:3px solid #000; border-radius:8px; outline:none; font:.7rem/1.4 ui-monospace,Menlo,Consolas,monospace; white-space:pre; overflow:auto;}
+  #dt-restore{flex:none; display:flex; flex-direction:column; gap:4px; padding:4px; background:var(--bg); border:3px solid #000; border-radius:8px;}
+  #dt-restore:empty{display:none;}
+  .rs-card{display:flex; flex-direction:column; justify-content:center; gap:2px; width:100%; height:45px; margin:0; padding:0 8px; text-align:left;
+    background:var(--panel); border:3px solid #000; border-radius:8px; cursor:pointer; font:400 .62rem/1.15 Arial,sans-serif; text-transform:uppercase; color:var(--muted);}
+  .rs-card .rs-when{font:700 .66rem/1.1 Arial,sans-serif; color:var(--ink);}
+  .rs-card.on{background:var(--ink); color:#d6cfc2;} .rs-card.on .rs-when{color:#fff;}
+  /* bookcloth buttons in the footer */
+  .dt-pair{display:flex; gap:4px;} .dt-pair[hidden]{display:none;}
+  .cloth-btn{position:relative; overflow:hidden; flex:1 1 0; min-width:0; height:45px; margin:0; padding:0; border:3px solid #000; border-radius:8px; color:#fff; cursor:pointer;
+    background-color:var(--cloth); background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px), linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.12));
+    font:700 min(1rem,4vw)/1 Georgia,'Times New Roman',serif; letter-spacing:.14em; text-transform:uppercase;}
+  .dt-pair:has(> :nth-child(3)) > .cloth-btn{font-size:min(.86rem,3vw); letter-spacing:.08em; white-space:nowrap;}
+  .cloth-btn:active{filter:brightness(.92);}
+  /* the backup reminder */
+  .rr-modal{position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(20,16,12,.45); opacity:0; pointer-events:none; transition:opacity .2s;}
+  .rr-modal.open{opacity:1; pointer-events:auto;}
+  .rr-box{width:100%; max-width:340px; background:var(--panel); border:3px solid #000; border-radius:10px; padding:16px;}
+  .rr-title{font:1.05rem Georgia,serif; margin-bottom:6px;}
+  .rr-body{font:.78rem/1.4 Arial,sans-serif; color:var(--muted); margin-bottom:14px;}
+  .rr-note{margin-top:10px; font:.64rem Arial,sans-serif; color:var(--muted);}
   @media (prefers-reduced-motion:reduce){ .disc, .page, .toast{transition:none !important;} .spin{animation-duration:3s;} }
 </style>
 </head>
@@ -448,7 +500,8 @@ function start(){
 }
 function tick(now){if(!T0)T0=now;const t=(now-T0)/1000;IC.frame(t,o,U);
   if(t>4.7){end();return}raf=requestAnimationFrame(tick)}
-function end(){if(ended)return;ended=true;spl.classList.add('gone');setTimeout(()=>{cancelAnimationFrame(raf);spl.remove()},470)}
+let doneOk;window.__splDone=new Promise(r=>doneOk=r);
+function end(){if(ended)return;ended=true;spl.classList.add('gone');setTimeout(()=>{cancelAnimationFrame(raf);spl.remove();doneOk()},470)}
 spl.addEventListener('click',end);   // tap skips
 start();
 })();
@@ -460,6 +513,7 @@ start();
     <div class="tab" data-tab="library" style="--cloth:#2b5752">Albums</div>
     <div class="tab" data-tab="data" style="--cloth:#8a6a3f">Data</div>
   </div>
+  <div class="hdr-row" id="row2d" hidden><div class="seg" id="dt-tabs"><button type="button" data-dt="stats">Stats</button><button type="button" data-dt="backup">Backup</button><button type="button" data-dt="export">Export</button><button type="button" data-dt="import">Import</button></div></div>
   <div class="hdr-row" id="row2">
     <div id="sf-card">
       <span id="sf-search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><circle cx="10" cy="10" r="6.5"/><path d="M15 15l6 6"/></svg></span>
@@ -472,7 +526,7 @@ start();
 
 <div id="app"></div>
 
-<div id="app-footer"><div class="add-card" id="add-card"><b>+</b>Add New Album</div></div>
+<div id="app-footer"><div class="add-card" id="add-card"><b>+</b>Add New Album</div><div class="dt-pair" id="dt-foot" hidden></div></div>
 
 <!-- sort and filter -->
 <div class="page" id="so-page" aria-hidden="true">
@@ -543,7 +597,13 @@ start();
 </div>
 
 <input type="file" id="ar-file" accept="image/*" hidden>
-<input type="file" id="imp-file" accept="application/json,.json" hidden>
+<input type="file" id="imp-file" accept="application/json,.json,text/plain,.txt" hidden>
+<div class="rr-modal" id="bk-modal"><div class="rr-box">
+  <div class="rr-title">Back up your music?</div>
+  <div class="rr-body" id="bk-modal-body">It's been a while since your last backup.</div>
+  <div class="dt-split"><button type="button" id="bk-later">Later</button><button type="button" id="bk-go" class="on">Back Up</button></div>
+  <div class="rr-note">Turn off in Data, Backup.</div>
+</div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -707,11 +767,13 @@ function setTab(t){
   S.ui.open=[];   // dropdowns always start closed
   S.ui.tab=t;save();Q='';$('#sfq').value='';$('#sf-card').classList.remove('searching','has-q');
   $$('#tabs .tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
-  $('#row2').hidden=t==='data';$('#app-header').classList.toggle('bare',t==='data');
-  $('#app-footer').hidden=t==='data';document.body.classList.toggle('no-foot',t==='data');
+  $('#row2').hidden=t==='data';$('#row2d').hidden=t!=='data';
+  $('#add-card').hidden=t==='data';$('#dt-foot').hidden=t!=='data';
+  if(t!=='data'){$('#app-footer').hidden=false;document.body.classList.remove('no-foot','dt-fit')}
   measure();render();scrollTo(0,0);
 }
 function render(){({library:renderLib,artists:renderArtists,data:renderData})[S.ui.tab]();renderSf()}
+let DTV='stats';   // which part of Data is showing
 function renderSf(){
   const t=S.ui.tab;if(t==='data')return;
   const u=t==='library'?S.ui.lib:S.ui.art,list=t==='library'?LIB_SORTS:ART_SORTS;
@@ -768,6 +830,14 @@ function renderArtists(){
   $('#app').innerHTML=h;
 }
 function renderData(){
+  $$('#dt-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.dt===DTV));
+  document.body.classList.toggle('dt-fit',DTV==='export'||DTV==='import');
+  ({stats:dtStats,backup:dtBackup,export:dtExport,import:dtImport})[DTV]();measure();
+}
+$('#dt-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-dt]');if(!b||DTV===b.dataset.dt)return;DTV=b.dataset.dt;renderData();scrollTo(0,0)});
+// Data's footer: bookcloth buttons; none on Stats
+function setFoot(html){const f=$('#dt-foot');f.innerHTML=html;const on=!!html;$('#app-footer').hidden=!on;document.body.classList.toggle('no-foot',!on);measure()}
+function dtStats(){
   const al=S.albums,tr=al.reduce((t,a)=>t+(a.tracks||[]).length,0),len=al.reduce((t,a)=>t+total(a),0),ar=artistMap().size;
   const gc={},gn={};for(const a of al)for(const g of genresOf(a)){const k=g.toLowerCase();gc[k]=(gc[k]||0)+1;gn[k]=gn[k]||g}
   const gs=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>[gn[k],v]),gmax=gs[0]?.[1]||1;
@@ -780,12 +850,84 @@ function renderData(){
     ${tc.length?`<div class="list-divider sm"><span>By Type</span></div>${bars(tc,tmax,n=>TYPE_C[n])}`:''}
     ${gs.length?`<div class="list-divider sm"><span>Top Genres</span></div>${bars(gs,gmax,n=>clothOf('g|'+n))}`:''}
     ${ds.length?`<div class="list-divider sm"><span>By Decade</span></div>${bars(ds.map(([d,v])=>[d+'s',v]),dmax,(n,i)=>CLOTHS[i%CLOTHS.length])}`:''}
-    <div class="list-divider"><span>Backup</span></div>
-    <div class="row2"><button type="button" class="card-btn ink" id="dt-exp">Save Backup</button><button type="button" class="card-btn" id="dt-imp">Import Backup</button></div>
-    <div class="note">Everything is stored in this browser on this device. Save a backup to keep a copy or move it to another device. Importing adds the albums in the backup and updates ones you already have; nothing is removed.</div>
     <div class="list-divider sm"><span>About</span></div>
     <div class="note">Album details from <a href="https://musicbrainz.org" target="_blank" rel="noopener">MusicBrainz</a>, covers from the <a href="https://coverartarchive.org" target="_blank" rel="noopener">Cover Art Archive</a>, Deezer, TheAudioDB and <a href="https://www.apple.com/itunes/" target="_blank" rel="noopener">iTunes</a>, artist photos from <a href="https://www.deezer.com" target="_blank" rel="noopener">Deezer</a>, <a href="https://www.theaudiodb.com" target="_blank" rel="noopener">TheAudioDB</a> and <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a>, and previews from Deezer. All free, none need an account.</div>`;
-  $('#dt-exp').onclick=exportBackup;$('#dt-imp').onclick=()=>$('#imp-file').click();
+  setFoot('');
+}
+
+function dtBackup(){
+  if(FS_OK&&!dtBackup._ready){dtBackup._ready=true;fsReady.then(()=>{if(S.ui.tab==='data'&&DTV==='backup')dtBackup()})}
+  const b=bk(),n=nextBackup();
+  const next=b.every==='never'?'Off':!S.albums.length?'—':n<=Date.now()?'Due now':fmtDate(n);
+  const days=['S','M','T','W','T','F','S'].map((d,i)=>`<i data-wd="${i}" class="${b.day===i?'on':''}">${d}</i>`).join('');
+  $('#app').innerHTML=`
+    <div class="dt-card when"><span>Last backup<b>${b.last?fmtDate(b.last):'Never'}</b></span><span>Next backup<b>${next}</b></span></div>
+    <div class="dt-card bk-loc"><button type="button" id="bk-loc-pick">Backup location<b>${esc(backupDir?backupDir.name:FS_OK?'Share sheet or Downloads · tap to pick a folder':'Share sheet or Downloads')}</b></button>${backupDir?'<button type="button" id="bk-loc-clear" aria-label="Stop using this folder">✕</button>':''}</div>
+    <div class="dt-split" id="bk-every">
+      <button type="button" data-every="day" class="${b.every==='day'?'on':''}">Daily</button>
+      <button type="button" data-every="week" class="wk ${b.every==='week'?'on':''}"><span class="wk-label">Weekly</span><span class="wk-days">${days}</span></button>
+      <button type="button" data-every="never" class="${b.every==='never'?'on':''}">Never</button>
+    </div>
+    <div class="dt-card how"><span>Your collection saves on this device as you go.</span>
+      <span>${b.every==='never'?'Backups are off. Back Up Now still saves a file.':backupDir?'When a backup is due, it saves to your folder by itself.':'When a backup is due, you’ll be asked to save a file.'}</span>
+      <span>Backups include covers and artist photos.</span></div>`;
+  $('#bk-loc-pick').onclick=pickBackupFolder;
+  if($('#bk-loc-clear'))$('#bk-loc-clear').onclick=clearBackupFolder;
+  $('#bk-every').onclick=e=>{const wd=e.target.closest('i[data-wd]'),btn=e.target.closest('button');if(!btn)return;
+    if(wd&&b.every==='week')b.day=+wd.dataset.wd;else b.every=btn.dataset.every;save();dtBackup()};
+  setFoot(`<button type="button" class="cloth-btn" style="--cloth:#8a6a3f" id="bk-now">Back Up Now</button>`);
+  $('#bk-now').onclick=backUpNow;
+}
+// Export: the collection as text to copy (without the pictures, so it stays small enough to paste), or the full file
+function dtExport(){
+  $('#app').innerHTML=`<div class="dt-card how"><span>The text below is your whole collection without pictures, to copy and paste.</span><span>Download saves the full backup, pictures included.</span></div>
+    <textarea class="dt-text" id="dt-export-text" readonly spellcheck="false"></textarea>`;
+  $('#dt-export-text').value=libraryJSON(false);
+  setFoot(`<button type="button" class="cloth-btn" style="--cloth:#234a5e" id="dt-copy">Copy</button><button type="button" class="cloth-btn" style="--cloth:#3a2f52" id="dt-download">Download</button>`);
+  $('#dt-copy').onclick=async()=>{const t=$('#dt-export-text');let ok=false;
+    try{await navigator.clipboard.writeText(t.value);ok=true}catch(e){
+      try{t.removeAttribute('readonly');t.focus();t.select();t.setSelectionRange(0,t.value.length);ok=document.execCommand('copy')}catch(e2){}
+      t.setAttribute('readonly','')}
+    toast(ok?'Copied':'Couldn’t copy — press and hold the text, Select all, then Copy')};
+  $('#dt-download').onclick=backUpNow;
+}
+// Import: paste, load a file, or tap one of the newest backups in your folder; then Merge or Replace
+function dtImport(){
+  $('#app').innerHTML=`<button type="button" class="dt-card" id="dt-status">Import<b>Tap here to paste</b></button>
+    <textarea class="dt-text" id="dt-import-text" spellcheck="false" placeholder="Paste a backup here, load a file below, or tap a backup from your folder"></textarea>
+    <div id="dt-restore"></div>`;
+  paintRestore();
+  $('#dt-import-text').oninput=updateImportStatus;
+  $('#dt-status').onclick=pasteImport;
+  setFoot(`<button type="button" class="cloth-btn" style="--cloth:#2b5752" id="dt-load">Load File</button><button type="button" class="cloth-btn" style="--cloth:#86452b" id="dt-merge">Merge</button><button type="button" class="cloth-btn" style="--cloth:#7a2f2b" id="dt-replace">Replace</button>`);
+  $('#dt-load').onclick=()=>$('#imp-file').click();
+  $('#dt-merge').onclick=()=>{const r=parseImport($('#dt-import-text').value);if(r.state!=='ok'){toast(r.msg||'Paste or load a backup first');return}
+    const n=mergeImport(r.data);save();afterImport();toast(`Merged — ${n} new release${n===1?'':'s'}`);$('#dt-import-text').value='';updateImportStatus()};
+  $('#dt-replace').onclick=()=>{const r=parseImport($('#dt-import-text').value);if(r.state!=='ok'){toast(r.msg||'Paste or load a backup first');return}
+    if(!confirm('Replace your whole collection with this backup?'))return;
+    S.albums=r.data.albums;S.artists=r.data.artists||{};save();afterImport();toast('Collection replaced');setTab('artists')};
+}
+function updateImportStatus(){
+  const r=parseImport($('#dt-import-text').value),c=$('#dt-status');
+  c.classList.toggle('error',r.state==='error');
+  c.innerHTML=r.state==='wait'?'Import<b>Tap here to paste</b>':r.state==='error'?`Import<b>${r.msg}</b>`:`Ready to import<b>${r.msg}</b>`;
+}
+async function paintRestore(){
+  const box=$('#dt-restore');if(!box)return;
+  const r=await folderBackups();if(!$('#dt-restore'))return;
+  if(r.state==='ask'){
+    box.innerHTML=`<button type="button" class="rs-card"><span class="rs-when">Show backups</span><span>Tap to allow the ${esc(backupDir.name)} folder</span></button>`;
+    box.firstChild.onclick=async()=>{try{if(await backupDir.requestPermission({mode:'readwrite'})==='granted')paintRestore()}catch(e){}};return}
+  if(r.state!=='ok'||!r.files.length){box.innerHTML='';return}
+  box.innerHTML=r.files.map((f,i)=>{const m=f.name.match(/(\d{4})-(\d{2})-(\d{2})/),d=new Date(+m[1],+m[2]-1,+m[3]);
+    return `<button type="button" class="rs-card" data-i="${i}"><span class="rs-when">${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</span><span>${esc(f.msg)}</span></button>`}).join('');
+  box.querySelectorAll('.rs-card').forEach(c=>c.onclick=()=>{box.querySelectorAll('.rs-card').forEach(x=>x.classList.toggle('on',x===c));
+    $('#dt-import-text').value=r.files[+c.dataset.i].txt;updateImportStatus()});
+}
+async function pasteImport(){
+  const t=$('#dt-import-text');
+  try{const txt=await navigator.clipboard.readText();if(!txt.trim()){toast('The clipboard is empty');return}t.value=txt;updateImportStatus()}
+  catch(e){t.focus();toast('Press and hold in the box below, then Paste')}
 }
 
 /* ================= search + sort card ================= */
@@ -1374,28 +1516,150 @@ async function findPhotos(){
   $('#ph-res').innerHTML=`<div class="sr-sec">Pick a photo<span>${PH.length}</span></div>`+PH.map((x,i)=>`<button type="button" class="lk-row ph-row" data-i="${i}"><div class="art ph" style="--c:${clothOf('artist|'+x.name)}"><span>${esc(initials(x.name))}</span><img alt="" loading="lazy" src="${esc(x.thumb)}" onerror="this.remove()"></div><span class="tx"><b>${esc(x.name)}</b><small>${esc(x.note)}</small></span><span class="tg">Use</span></button>`).join('');
 }
 
-/* ================= backup ================= */
-async function exportBackup(){
-  const data=JSON.stringify({app:'my-music-chronography',v:2,saved:new Date().toISOString(),albums:S.albums,artists:S.artists});
-  const name=`my-music-chronography-backup-${new Date().toISOString().slice(0,10)}.json`;
-  const file=new File([data],name,{type:'application/json'});
-  if(navigator.canShare&&navigator.canShare({files:[file]})&&/Android|iPhone|iPad/i.test(navigator.userAgent)){
-    try{await navigator.share({files:[file],title:'My Music Chronography backup'});return}catch(e){if(e.name==='AbortError')return}}
-  const u=URL.createObjectURL(file),l=document.createElement('a');l.href=u;l.download=name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);
-  toast('Backup saved');
+/* ================= backup: like Pod Tracer — a folder you pick once (where the browser allows it), Daily / Weekly / Never,
+   the share sheet or a download otherwise, and a reminder when one is due ================= */
+const DAY=86400000,pad2=n=>String(n).padStart(2,'0');
+const fmtDate=ms=>ms?new Date(ms).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}):'—';
+function bk(){if(!S.backup)S.backup={every:'week',day:new Date().getDay(),last:0};return S.backup}
+// the collection as a backup; pics=false leaves out the saved pictures (covers / photos kept inside the app) to keep it small.
+// Without them, covers and photos are fetched again after an import
+function libraryJSON(pics=true){
+  const noPic=x=>typeof x==='string'&&x.startsWith('data:')?'':x;
+  const albums=pics?S.albums:S.albums.map(a=>{const b={...a,cover:noPic(a.cover)};if(!b.cover){delete b.coverTried}return b});
+  const artists=pics?S.artists:Object.fromEntries(Object.entries(S.artists||{}).map(([k,e])=>{const v={...e,photo:noPic(e.photo)};if(!v.photo)delete v.tried;return[k,v]}));
+  return JSON.stringify({app:'my-music-chronography',v:3,saved:new Date().toISOString(),albums,artists},null,pics?0:1);
 }
-$('#imp-file').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
-  try{const j=JSON.parse(await f.text());const list=Array.isArray(j)?j:j.albums;if(!Array.isArray(list))throw 0;
-    let add=0,upd=0;for(const a of list){if(!a||!a.title)continue;a.type=TYPES.includes(a.type)?a.type:'Album';a.tracks=Array.isArray(a.tracks)?a.tracks:[];a.added=a.added||Date.now();a.id=a.id||uid();
-      const i=S.albums.findIndex(x=>x.id===a.id);if(i>-1){S.albums[i]=a;upd++}else{S.albums.push(a);add++}}
-    if(j.artists&&typeof j.artists==='object')for(const [k,v] of Object.entries(j.artists))if(v&&v.photo&&!(S.artists[k]&&S.artists[k].photo))S.artists[k]=v;
-    save();render();toast(`Imported: ${add} added, ${upd} updated`)}
-  catch(_){toast('That file isn’t a My Music Chronography backup')}});
+const FS_OK=typeof window.showDirectoryPicker==='function';
+const fsDB=()=>new Promise((res,rej)=>{const r=indexedDB.open('chronography-fs',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const fsGet=async k=>{const db=await fsDB();return new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})};
+const fsPut=async(k,v)=>{const db=await fsDB();return new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');v===undefined?t.objectStore('kv').delete(k):t.objectStore('kv').put(v,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})};
+let backupDir=null;
+const BACKUP_KEEP=10,BACKUP_FILE=/^my-music-chronography-\d{4}-\d{2}-\d{2}\.(json|txt)$/;
+const todayKey=()=>{const d=new Date();return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`};
+const fsReady=FS_OK?fsGet('backupDir').then(h=>{backupDir=h||null}).catch(()=>{}):Promise.resolve();
+async function pickBackupFolder(){
+  if(!FS_OK){toast('This browser can’t save to a chosen folder');return}
+  try{const h=await window.showDirectoryPicker({id:'chronography-backups',mode:'readwrite'});backupDir=h;await fsPut('backupDir',h);toast(`Backups go to ${h.name}`)}
+  catch(e){if(!e||e.name!=='AbortError')toast('Couldn’t use that folder')}
+  if(S.ui.tab==='data'&&DTV==='backup')dtBackup();
+}
+async function clearBackupFolder(){backupDir=null;try{await fsPut('backupDir',undefined)}catch(e){}if(S.ui.tab==='data'&&DTV==='backup')dtBackup()}
+// writes the backup into the chosen folder, keeping the newest 10; false if there isn't one or the browser won't allow it right now
+async function backupToFolder(name,txt,ask=true){
+  if(!backupDir)return false;
+  try{
+    let perm=await backupDir.queryPermission({mode:'readwrite'});
+    if(perm!=='granted'&&ask)perm=await backupDir.requestPermission({mode:'readwrite'});   // after a while away, one tap to allow it again
+    if(perm!=='granted')return false;
+    const fh=await backupDir.getFileHandle(name,{create:true}),w=await fh.createWritable();
+    await w.write(new Blob([txt],{type:'application/json'}));await w.close();
+    try{const ours=[];for await(const [n,e] of backupDir.entries())if(e.kind==='file'&&BACKUP_FILE.test(n))ours.push(n);
+      ours.sort().reverse().slice(BACKUP_KEEP).forEach(n=>backupDir.removeEntry(n).catch(()=>{}))}catch(e){}
+    return true;
+  }catch(e){return false}
+}
+// saves a backup: the chosen folder, else the share sheet (Save to Files / Drive), else a download.
+// Returns how it went: 'folder' | 'shared' | 'downloaded' | false (cancelled or failed)
+async function saveBackup(){
+  const txt=libraryJSON(),name=`my-music-chronography-${todayKey()}.json`;
+  await fsReady;
+  if(await backupToFolder(name,txt))return'folder';
+  // Android only shares certain file types, and .json isn't one: try it as .json, then as .txt (Import reads either)
+  for(const [n,type] of [[name,'application/json'],[name.replace(/\.json$/,'.txt'),'text/plain']]){
+    try{const file=new File([txt],n,{type});
+      if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'My Music Chronography backup'});return'shared'}}
+    catch(e){if(e&&e.name==='AbortError')return false}
+  }
+  try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));
+    a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);return'downloaded'}
+  catch(e){return false}
+}
+async function backUpNow(){
+  const how=await saveBackup();
+  if(!how){toast('Not saved — use Export › Copy to keep a copy');return}
+  bk().last=Date.now();save();
+  toast(how==='folder'?`Saved to ${backupDir.name}`:how==='shared'?'Backup handed to the share sheet':'Downloaded — check your Downloads folder');
+  if(S.ui.tab==='data'&&DTV==='backup')dtBackup();
+}
+// Daily / Weekly with a folder chosen: backs up on its own when due (if the browser still allows it without asking)
+async function autoBackup(){
+  await fsReady;
+  if(!backupDir||!backupDue())return false;
+  try{if(await backupDir.queryPermission({mode:'readwrite'})!=='granted')return false}catch(e){return false}
+  if(!await backupToFolder(`my-music-chronography-${todayKey()}.json`,libraryJSON(),false))return false;
+  bk().last=Date.now();save();if(S.ui.tab==='data'&&DTV==='backup')dtBackup();
+  return true;
+}
+// the newest three backups in the folder, for Import
+async function folderBackups(){
+  await fsReady;if(!backupDir)return{state:'none'};
+  let perm='denied';try{perm=await backupDir.queryPermission({mode:'read'})}catch(e){}
+  if(perm!=='granted')return{state:'ask'};
+  const files=[];
+  try{for await(const [n,e] of backupDir.entries())if(e.kind==='file'&&BACKUP_FILE.test(n))files.push([n,e])}catch(e){return{state:'none'}}
+  files.sort((a,b)=>a[0]<b[0]?1:-1);
+  const out=[];
+  for(const [n,e] of files.slice(0,3)){try{const txt=await (await e.getFile()).text(),r=parseImport(txt);if(r.state==='ok')out.push({name:n,txt,msg:r.msg})}catch(err){}}
+  return{state:'ok',files:out};
+}
+// when the next backup is due: the day after the last (Daily), or the picked weekday after it (Weekly)
+function nextBackup(){
+  const b=bk();if(b.every==='never')return 0;if(!b.last)return Date.now();
+  const d=new Date(b.last);d.setHours(0,0,0,0);
+  if(b.every==='day')return d.getTime()+DAY;
+  let n=new Date(d.getTime()+DAY);while(n.getDay()!==b.day)n=new Date(n.getTime()+DAY);return n.getTime();
+}
+function backupDue(){const n=nextBackup();return n&&S.albums.length&&Date.now()>=n}
+async function checkBackup(){
+  if(await autoBackup())return;
+  if(!backupDue())return;
+  const b=bk();$('#bk-modal-body').textContent=b.last?`Your last backup was ${fmtDate(b.last)}.`:'You haven’t backed up your music yet.';
+  $('#bk-modal').classList.add('open');
+}
+$('#bk-later').onclick=()=>$('#bk-modal').classList.remove('open');
+$('#bk-go').onclick=()=>{$('#bk-modal').classList.remove('open');backUpNow()};
+
+// import: check pasted / loaded text, then Merge or Replace
+function parseImport(txt){
+  if(!txt.trim())return{state:'wait'};
+  let d;txt=txt.replace(/^﻿/,'').trim();
+  try{d=JSON.parse(txt)}catch(e){const a=txt.indexOf('{'),b=txt.lastIndexOf('}');try{d=JSON.parse(txt.slice(a,b+1))}catch(e2){return{state:'error',msg:'Not valid JSON'}}}
+  const list=Array.isArray(d)?d:d&&d.albums;
+  if(!Array.isArray(list))return{state:'error',msg:'Not a My Music Chronography backup'};
+  const albums=list.filter(a=>a&&a.title).map(a=>({...a,type:TYPES.includes(a.type)?a.type:'Album',tracks:Array.isArray(a.tracks)?a.tracks:[],added:a.added||Date.now(),id:a.id||uid()}));
+  if(!albums.length)return{state:'error',msg:'No albums in this backup'};
+  const arts=new Set(albums.map(a=>akey(a.artist))).size;
+  return{state:'ok',data:{albums,artists:(d&&typeof d.artists==='object'&&!Array.isArray(d.artists))?d.artists:{}},msg:`${albums.length} release${albums.length===1?'':'s'} · ${arts} artist${arts===1?'':'s'}`};
+}
+// merge: adds what's new, keeps what you have (filling in a cover or photo you're missing)
+function mergeImport(d){
+  let added=0;
+  for(const a of d.albums){
+    const cur=S.albums.find(x=>x.id===a.id||(a.mbid&&x.mbid===a.mbid));
+    if(!cur){S.albums.push(a);added++;continue}
+    if(!cur.cover&&a.cover&&!cur.noCover){cur.cover=a.cover;cur.coverSrc=a.coverSrc}
+  }
+  for(const [k,v] of Object.entries(d.artists||{}))if(v&&v.photo&&!(S.artists[k]&&(S.artists[k].photo||S.artists[k].none)))S.artists[k]=v;
+  return added;
+}
+// after an import: anything without a cover or photo gets looked up again; previews get checked
+function afterImport(){
+  render();
+  for(const a of S.albums){if(!a.cover)autoCover(a.id);if(!a.pvChecked)checkPreviews(a.id)}
+  for(const x of artistMap().values())autoPhoto(x.name);
+}
+$('#imp-file').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
+  let txt='';try{txt=await f.text()}catch(err){toast('Couldn’t read that file');return}
+  const t=$('#dt-import-text');if(!t)return;
+  t.value=txt;updateImportStatus();
+  if(parseImport(txt).state!=='ok')toast(`${f.name} isn’t a My Music Chronography backup`);
+});
 
 /* ================= start ================= */
 (async()=>{
   const d=await Store.load();
-  if(d&&Array.isArray(d.albums)){S.albums=d.albums;S.artists=d.artists||{};if(d.ui)S.ui={...S.ui,...d.ui,lib:{...S.ui.lib,...d.ui.lib},art:{...S.ui.art,...d.ui.art}}}
+  if(d&&Array.isArray(d.albums)){S.albums=d.albums;S.artists=d.artists||{};if(d.backup)S.backup=d.backup;if(d.ui)S.ui={...S.ui,...d.ui,lib:{...S.ui.lib,...d.ui.lib},art:{...S.ui.art,...d.ui.art}}}
   S.ui.open=[];LOADED=true;
   // ask the browser to treat this app's storage as permanent (not cleared to free up space)
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
@@ -1404,6 +1668,7 @@ $('#imp-file').addEventListener('change',async e=>{const f=e.target.files[0];e.t
   for(const x of artistMap().values())autoPhoto(x.name);   // any artist still without a photo (tried at most once a week)
   for(const a of S.albums)if(!a.pvChecked)checkPreviews(a.id);   // albums added before preview checks, or while offline
   for(const a of S.albums)if(!a.cover)autoCover(a.id);           // albums with no cover yet (tried at most once a week)
+  (window.__splDone||Promise.resolve()).then(checkBackup);      // a backup that's due: saved on its own, or a reminder
   if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
