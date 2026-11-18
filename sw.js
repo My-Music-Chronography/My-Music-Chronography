@@ -1,6 +1,6 @@
 // My Music Chronography service worker: keeps the app itself offline, and every cover it has shown.
 // When you upload a new index.html, change VERSION so installed copies pick it up.
-const VERSION = 'chronography-v30';
+const VERSION = 'chronography-v31';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './three.min.js'];
 
 self.addEventListener('install', e => {

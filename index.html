@@ -1548,11 +1548,33 @@ const S3D=(()=>{
     return new THREE.Color(`rgb(${Math.round(r/k*.82)},${Math.round(g/k*.82)},${Math.round(b/k*.82)})`).convertSRGBToLinear();
   }
   function setFront(c){const t=tex(c);if(frontMat.map)frontMat.map.dispose();frontMat.map=t;frontMat.needsUpdate=true;edgeMat.color.copy(edgeOf(c))}
+  // the cover's main color: shrunk to 64×64, colors sorted into buckets of like colors, the fullest bucket wins;
+  // near-black, near-white and greys count for less, so a white border or a black background doesn't win over the art
+  function mainColor(c){
+    const s=can(64),x=s.getContext('2d');x.drawImage(c,0,0,64,64);const d=x.getImageData(0,0,64,64).data,B=new Map();
+    for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+      let w=.06+(mx-mn)/255*1.2;if(mx<60)w*=.35;if(mn>215)w*=.25;   // colorful counts most; very dark or very pale, least
+      const k=(r>>5)<<6|(g>>5)<<3|(b>>5),e=B.get(k)||{w:0,r:0,g:0,b:0,n:0};e.w+=w;e.r+=r;e.g+=g;e.b+=b;e.n++;B.set(k,e)}
+    let best=null;for(const e of B.values())if(!best||e.w>best.w)best=e;
+    return best?[Math.round(best.r/best.n),Math.round(best.g/best.n),Math.round(best.b/best.n)]:null;
+  }
+  // a deep blur of the cover for the back: shrunk right down, then smoothly enlarged back (a little oversized so the
+  // edges don't go pale)
+  function blurOf(c){
+    const n=1024,o=can(n),x=o.getContext('2d'),t=can(16),tx=t.getContext('2d'),m=can(64),mx=m.getContext('2d');
+    tx.imageSmoothingQuality=mx.imageSmoothingQuality=x.imageSmoothingQuality='high';
+    tx.drawImage(c,n*.06,n*.06,n*.88,n*.88,0,0,16,16);
+    mx.drawImage(t,0,0,64,64);x.drawImage(m,-n*.05,-n*.05,n*1.1,n*1.1);return o;
+  }
+  const lum=([r,g,b])=>(.299*r+.587*g+.114*b)/255;
+  let ART={can:null,col:null,key:''};   // the cover as read, its main color, and which cover it was
   function front(){
-    const my=++tok;setFront(phCover());if(!ED.cover)return;
+    const my=++tok;setFront(phCover());ART={can:null,col:null,key:''};if(!ED.cover)return;
     const im=new Image();if(!/^data:/.test(ED.cover))im.crossOrigin='anonymous';
     im.onload=()=>{if(my!==tok)return;const n=1024,c=can(n),x=c.getContext('2d'),k=Math.max(n/im.naturalWidth,n/im.naturalHeight),w=im.naturalWidth*k,h=im.naturalHeight*k;
-      x.drawImage(im,(n-w)/2,(n-h)/2,w,h);try{x.getImageData(0,0,1,1);setFront(c)}catch(_){}};   // a picture we may not read stays the placeholder
+      x.drawImage(im,(n-w)/2,(n-h)/2,w,h);try{x.getImageData(0,0,1,1);setFront(c)}catch(_){return}   // a picture we may not read stays the placeholder
+      const a=can(8),ax=a.getContext('2d');ax.drawImage(c,0,0,8,8);const d=ax.getImageData(0,0,8,8).data;let L=0;for(let i=0;i<d.length;i+=4)L+=lum([d[i],d[i+1],d[i+2]]);
+      ART={can:c,col:mainColor(c),lt:L/64>.5,key:sig.f};update()};   // lt: the cover is light overall   // the back and the label follow the cover
     im.src=ED.cover;
   }
   function recordFace(side){
@@ -1560,8 +1582,9 @@ const S3D=(()=>{
     x.fillStyle='#000';x.fillRect(0,0,n,n);x.fillStyle='#1c1916';x.beginPath();x.arc(m,m,m*.985,0,7);x.fill();
     for(let r=m*.97;r>m*.38;r-=m*.0065){const l=r%3<1.5;x.strokeStyle=l?'rgba(58,52,48,.9)':'rgba(44,40,36,.9)';x.lineWidth=m*.0025;x.beginPath();x.arc(m,m,r,0,7);x.stroke()}
     [.93,.78,.62,.5].forEach(k=>{x.strokeStyle='#100e0c';x.lineWidth=m*.012;x.beginPath();x.arc(m,m,m*k,0,7);x.stroke()});
-    x.fillStyle=col;x.beginPath();x.arc(m,m,m*.36,0,7);x.fill();x.strokeStyle='rgba(0,0,0,.35)';x.lineWidth=m*.02;x.stroke();
-    x.save();x.translate(m,m);x.fillStyle='#f3eee4';x.textAlign='center';
+    const lc=ART.col,ink=lc&&lum(lc)>.62?'#2b2620':'#f3eee4';
+    x.fillStyle=lc?`rgb(${lc})`:col;x.beginPath();x.arc(m,m,m*.36,0,7);x.fill();x.strokeStyle='rgba(0,0,0,.35)';x.lineWidth=m*.02;x.stroke();
+    x.save();x.translate(m,m);x.fillStyle=ink;x.textAlign='center';
     const fit=(s,f,w)=>{x.font=f;while(s.length>1&&x.measureText(s).width>w)s=s.slice(0,-2)+'…';return s};
     x.fillText(fit(t,`700 ${m*.075}px Georgia`,m*.62),0,-m*.16);x.fillText(fit(a.toUpperCase(),`700 ${m*.04}px Arial`,m*.6),0,-m*.09);
     x.font=`700 ${m*.045}px Arial`;x.fillText(side,0,m*.2);x.font=`${m*.032}px Arial`;x.fillText(ED.type==='Single'?'45 RPM':'33⅓ RPM',0,m*.27);x.restore();
@@ -1571,11 +1594,17 @@ const S3D=(()=>{
   // 2, 3 or 4 columns at the largest type that fits them all (2 columns split into Side A and Side B when that fits)
   function backFace(){
     const n=1024,c=can(n),x=c.getContext('2d'),{t:title,a:artist}=nm(),T=(ED.tracks||[]).map(r=>(r.t||'').trim()).filter(Boolean),N=T.length,L=n*.07,Rt=n*.93;
-    x.fillStyle='#efeadf';x.fillRect(0,0,n,n);x.textAlign='left';
+    // a cover: its deep blur, washed pale or dark (whichever it leans to) so the writing reads; no cover: plain cream
+    let INK='#2b2620',DIM='#8a8378',ACC='#7a2f2b';
+    if(ART.can){x.drawImage(blurOf(ART.can),0,0);const lt=ART.lt;
+      x.fillStyle=lt?'rgba(239,234,223,.55)':'rgba(20,17,15,.5)';x.fillRect(0,0,n,n);
+      if(!lt){INK='#f3eee4';DIM='rgba(243,238,228,.72)';ACC='#f3eee4'}else{DIM='rgba(43,38,32,.68)';ACC='#2b2620'}}
+    else{x.fillStyle='#efeadf';x.fillRect(0,0,n,n)}
+    x.textAlign='left';
     const fit=(s,w)=>{while(s.length>1&&x.measureText(s).width>w)s=s.slice(0,-2)+'…';return s};
-    x.fillStyle='#2b2620';x.font=`700 ${n*.048}px Georgia`;x.fillText(fit(title,Rt-L),L,n*.085);
-    x.fillStyle='#7a2f2b';x.font=`700 ${n*.024}px Arial`;x.fillText(fit(artist.toUpperCase(),Rt-L),L,n*.122);
-    x.fillStyle='#2b2620';x.fillRect(L,n*.142,Rt-L,n*.004);
+    x.fillStyle=INK;x.font=`700 ${n*.048}px Georgia`;x.fillText(fit(title,Rt-L),L,n*.085);
+    x.fillStyle=ACC;x.font=`700 ${n*.024}px Arial`;x.fillText(fit(artist.toUpperCase(),Rt-L),L,n*.122);
+    x.fillStyle=INK;x.fillRect(L,n*.142,Rt-L,n*.004);
     const top=n*.175,bot=n*.885,gapC=n*.03;
     function layout(cols,fs,sides){
       const colW=(Rt-L-gapC*(cols-1))/cols,lh=fs*1.2,gap=fs*.42,out=[];x.font=`${fs}px Georgia`;
@@ -1595,21 +1624,22 @@ const S3D=(()=>{
       let lo=n*.012,hi=n*.036,got=null;for(let k=0;k<14;k++){const md=(lo+hi)/2,l=layout(cols,md,sides);if(l){got=l;lo=md}else hi=md}
       if(got&&(!best||got.fs>best.fs*1.04||(got.sides&&got.fs>=best.fs*.9)))best=got;
     }
-    if(!N){x.fillStyle='#8a8378';x.font=`${n*.03}px Georgia`;x.textAlign='center';x.fillText('No tracks listed',n/2,n*.53);x.textAlign='left'}
+    if(!N){x.fillStyle=DIM;x.font=`${n*.03}px Georgia`;x.textAlign='center';x.fillText('No tracks listed',n/2,n*.53);x.textAlign='left'}
     else{if(!best){best=null;for(let fs=n*.012;fs>n*.004&&!best;fs*=.9)best=layout(4,fs,false)}   // very long: as small as it takes
-      if(best){if(best.sides)['SIDE A','SIDE B'].forEach((s,k)=>{x.font=`700 ${best.fs*.72}px Arial`;x.fillStyle='#8a8378';x.fillText(s,L+k*(best.colW+gapC),top+best.fs*.75)});
-        best.out.forEach(r=>{x.font=`${best.fs}px Georgia`;x.fillStyle='#8a8378';x.fillText(r.num,r.X,r.Y+best.fs*.85);
-          x.fillStyle='#2b2620';r.lines.forEach((l,k)=>x.fillText(l,r.X+r.nw,r.Y+best.fs*.85+k*best.lh))})}}
-    x.fillStyle='#2b2620';x.fillRect(L,n*.9,Rt-L,n*.003);
-    x.font=`${n*.02}px Arial`;x.fillStyle='#8a8378';x.fillText(fit([ED.year,N?`${N} track${N===1?'':'s'}`:''].filter(Boolean).join(' · '),Rt-L-n*.2),L,n*.94);
-    for(let i=0;i<30;i++){x.fillStyle='#2b2620';x.fillRect(Rt-n*.16+i*n*.0052,n*.912,n*(.002+((i*7)%5)*.0014),n*.05)}
+      if(best){if(best.sides)['SIDE A','SIDE B'].forEach((s,k)=>{x.font=`700 ${best.fs*.72}px Arial`;x.fillStyle=DIM;x.fillText(s,L+k*(best.colW+gapC),top+best.fs*.75)});
+        best.out.forEach(r=>{x.font=`${best.fs}px Georgia`;x.fillStyle=DIM;x.fillText(r.num,r.X,r.Y+best.fs*.85);
+          x.fillStyle=INK;r.lines.forEach((l,k)=>x.fillText(l,r.X+r.nw,r.Y+best.fs*.85+k*best.lh))})}}
+    x.fillStyle=INK;x.fillRect(L,n*.9,Rt-L,n*.003);
+    x.font=`${n*.02}px Arial`;x.fillStyle=DIM;x.fillText(fit([ED.year,N?`${N} track${N===1?'':'s'}`:''].filter(Boolean).join(' · '),Rt-L-n*.2),L,n*.94);
+    for(let i=0;i<30;i++){x.fillStyle=INK;x.fillRect(Rt-n*.16+i*n*.0052,n*.912,n*(.002+((i*7)%5)*.0014),n*.05)}
     return tex(c);
   }
   // only what changed is redrawn
   function update(){
     if(!ok)return;const {t,a}=nm(),tr=(ED.tracks||[]).map(r=>r.t||'').join('\n');
-    const f=t+'|'+a+'|'+(ED.cover?ED.cover.length+ED.cover.slice(-60):''),l=t+'|'+a+'|'+ED.type,b=t+'|'+a+'|'+tr+'|'+(ED.year||'');
+    const f=t+'|'+a+'|'+(ED.cover?ED.cover.length+ED.cover.slice(-60):'');
     if(sig.f!==f){sig.f=f;front()}
+    const l=t+'|'+a+'|'+ED.type+'|'+ART.key,b=t+'|'+a+'|'+tr+'|'+(ED.year||'')+'|'+ART.key;
     if(sig.l!==l){sig.l=l;[discA,discB].forEach((m,i)=>{if(m.map)m.map.dispose();m.map=recordFace(i?'SIDE B':'SIDE A');m.needsUpdate=true})}
     if(sig.b!==b){sig.b=b;if(backMat.map)backMat.map.dispose();backMat.map=backFace();backMat.needsUpdate=true}
   }
