@@ -337,6 +337,35 @@
   .tr-list{display:flex; flex-direction:column; gap:4px;}
   .tr-list .sr-sec{height:28px; border:3px solid #000; border-radius:8px;}
   .tr-list .tr-row{min-height:45px; border:3px solid #000; border-radius:8px; overflow:hidden;}
+  /* album window: a track's dropdown (add it to a playlist) */
+  .tr-list .tr-card{border:3px solid #000; border-radius:8px; overflow:hidden; background:#000;}
+  .tr-list .tr-card .tr-row{min-height:39px; border:0; border-radius:0;}   /* 45px with the card's border */
+  .tr-drop{display:none;} .tr-card.open .tr-drop{display:block; border-top:3px solid #000;}
+  .pl-drop{display:flex; flex-direction:column; gap:4px; padding:4px; background:var(--unread);}
+  .pl-dh{font:700 .54rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); padding:2px 4px 0;}
+  .pl-pick{display:flex; align-items:stretch; height:45px; margin:0; padding:0; border:3px solid #000; border-radius:8px; overflow:hidden; background:#fff; text-align:left; color:var(--ink);}
+  .pl-pick .ic, .pl-card .ic{flex:none; width:39px; display:grid; place-items:center; background:var(--c); border-right:3px solid #000;}
+  .pl-pick .ic svg, .pl-card .ic svg{width:20px; height:20px;}
+  .pl-pick .tx{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; padding:0 10px; line-height:1.15;}
+  .pl-pick .tx b{font:700 .84rem Georgia,serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pl-pick .tx small{font:.6rem Arial,sans-serif; color:var(--muted);}
+  .pl-pick .st{flex:none; width:64px; display:grid; place-items:center; border-left:3px solid #000; background:var(--hdr-cell); font:700 .56rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase;}
+  .pl-pick.on .st{background:#2e4636; color:#fff;}
+  /* the Playlists tab */
+  .pl-list{display:flex; flex-direction:column; gap:4px;}
+  .pl-card{display:flex; align-items:stretch; height:45px; background:var(--panel); border:3px solid #000; border-radius:8px; overflow:hidden; cursor:pointer; user-select:none;}
+  .pl-card:active{filter:brightness(.96);}
+  .pl-card .main{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:1px; padding:0 10px; line-height:1.15;}
+  .pl-card .t{font:700 .9rem Georgia,serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pl-card .m{font:700 .52rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase; color:var(--muted);}
+  /* the playlist window */
+  .tr-row .two{display:flex; flex-direction:column; min-width:0; gap:1px;}
+  .tr-row .two b{font:600 .84rem/1.2 Georgia,serif;}
+  .tr-row .two small{font:.6rem Arial,sans-serif; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pl-row .x{flex:none; width:38px; margin:0; padding:0; border:0; border-left:3px solid #000; border-radius:0; background:#fff; color:var(--red); font:700 1.15rem/1 Arial,sans-serif;}
+  .pl-hit .n{font-size:1rem;} .pl-hit.in{background:#eef1e6;}
+  .pl-hit::before{display:none;}
+  .empty.sm{padding:14px 12px;}
   .tr-row::before{content:''; position:absolute; left:38px; top:0; bottom:0; width:calc((100% - 38px - 41px) * var(--p,0)); background:rgba(91,102,51,.16); pointer-events:none;}
   .tr-row .tx, .tr-row .ln{position:relative;}
   .tr-row .pb{flex:none; position:relative; width:41px; display:grid; place-items:center; border-left:3px solid #000; background:var(--unread);}
@@ -595,6 +624,7 @@ start();
   <div id="tabs">
     <div class="tab active" data-tab="artists" style="--cloth:#7a2f2b">Artists</div>
     <div class="tab" data-tab="library" style="--cloth:#2b5752">Albums</div>
+    <div class="tab" data-tab="playlists" style="--cloth:#66304c">Playlists</div>
     <div class="tab" data-tab="data" style="--cloth:#8a6a3f">Data</div>
   </div>
   <div class="hdr-row" id="row2d" hidden><div class="seg" id="dt-tabs"><button type="button" data-dt="stats">Stats</button><button type="button" data-dt="backup">Backup</button><button type="button" data-dt="export">Export</button><button type="button" data-dt="import">Import</button></div></div>
@@ -626,6 +656,11 @@ start();
 </div>
 
 <!-- an album's window -->
+<div class="page" id="pl-page" aria-hidden="true">
+  <div class="pg-head"><button type="button" id="pl-back">Back</button><h2 id="pl-title">Playlist</h2><button type="button" id="pl-del">Delete</button></div>
+  <div class="pg-body" id="pl-body"></div>
+</div>
+
 <div class="page" id="al-page" aria-hidden="true">
   <div class="pg-head"><button type="button" id="al-back">Back</button><h2 id="al-title">Album</h2><button type="button" class="go" id="al-edit">Edit</button></div>
   <div class="pg-body" id="al-body"></div>
@@ -769,7 +804,7 @@ const Store={
     return ls;
   }
 };
-const S={albums:[], artists:{}, ui:{tab:'artists', open:[], lib:{sort:'added',dir:-1,filter:'All'}, art:{sort:'name',dir:1,filter:'All'}}};
+const S={albums:[], artists:{}, playlists:[], ui:{tab:'artists', open:[], lib:{sort:'added',dir:-1,filter:'All'}, art:{sort:'name',dir:1,filter:'All'}}};
 let LOADED=false,saveT,warned=false;
 // nothing is written until the saved data has been read back in, so an empty start can never overwrite it
 function save(){if(!LOADED)return;clearTimeout(saveT);saveT=setTimeout(flush,250)}
@@ -851,19 +886,19 @@ function setTab(t){
   S.ui.open=[];   // dropdowns always start closed
   S.ui.tab=t;save();Q='';$('#sfq').value='';$('#sf-card').classList.remove('searching','has-q');
   $$('#tabs .tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
-  $('#row2').hidden=t==='data';$('#row2d').hidden=t!=='data';paintVw();
-  $('#add-card').hidden=t==='data';$('#dt-foot').hidden=t!=='data';
+  $('#row2').hidden=t==='data'||t==='playlists';$('#row2d').hidden=t!=='data';paintVw();
+  $('#add-card').hidden=t==='data';$('#add-card').innerHTML=t==='playlists'?'<b>+</b>New Playlist':'<b>+</b>Add New Album';$('#dt-foot').hidden=t!=='data';
   if(t!=='data'){$('#app-footer').hidden=false;document.body.classList.remove('no-foot','dt-fit')}
   measure();render();scrollTo(0,0);
 }
-function render(){({library:renderLib,artists:renderArtists,data:renderData})[S.ui.tab]();renderSf()}
+function render(){({library:renderLib,artists:renderArtists,playlists:renderPlaylists,data:renderData})[S.ui.tab]();renderSf()}
 let DTV='stats';   // which part of Data is showing
 const vw=()=>((S.ui.view||{})[S.ui.tab])||'list';
 function paintVw(){$$('#vw button').forEach(b=>b.classList.toggle('on',b.dataset.v===vw()))}
 $('#vw').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(!b||vw()===b.dataset.v)return;
   S.ui.view={...(S.ui.view||{}),[S.ui.tab]:b.dataset.v};save();paintVw();render();scrollTo(0,0)});
 function renderSf(){
-  const t=S.ui.tab;if(t==='data')return;
+  const t=S.ui.tab;if(t==='data'||t==='playlists')return;
   const u=t==='library'?S.ui.lib:S.ui.art,list=t==='library'?LIB_SORTS:ART_SORTS;
   $('#sf-filter').textContent=u.filter==='All'?'All':TYPE_PL[u.filter];
   $('#sf-sort').textContent=(list.find(s=>s.k===u.sort)||list[0]).n;
@@ -1038,7 +1073,7 @@ const stack=[];
 function openPage(id){const p=$(id);p.classList.add('open');p.setAttribute('aria-hidden','false');p.scrollTop=0;stack.push(id);history.pushState({p:id},'')}
 let skipPop=0;
 function closePage(id,fromPop){const p=$(id);p.classList.remove('open');p.setAttribute('aria-hidden','true');const i=stack.lastIndexOf(id);if(i>-1)stack.splice(i,1);if(!fromPop){skipPop++;history.back()}}
-addEventListener('popstate',()=>{if(skipPop){skipPop--;return}const id=stack[stack.length-1];if(id==='#al-page')stopPreview();if(id){if(id==='#ed-page'&&edDirty()&&!confirm('Discard this album?')){history.pushState({p:id},'');return}closePage(id,true)}});
+addEventListener('popstate',()=>{if(skipPop){skipPop--;return}const id=stack[stack.length-1];if(id==='#al-page'||id==='#pl-page')stopPreview();if(id){if(id==='#ed-page'&&edDirty()&&!confirm('Discard this album?')){history.pushState({p:id},'');return}closePage(id,true)}});
 
 /* ---- sort page ---- */
 const TRI='<svg viewBox="0 0 40 40"><polygon points="10.4,11 29.6,11 20,27.6" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/></svg>';
@@ -1062,8 +1097,8 @@ $('#so-body').addEventListener('click',e=>{
 $('#so-back').onclick=()=>closePage('#so-page');
 
 /* ---- album window ---- */
-let alId=null;
-function openAlbum(id){if(PV.id&&PV.id!==id)stopPreview();alId=id;renderAlbum();openPage('#al-page')}
+let alId=null,TRO=-1;   // TRO: the track whose dropdown is open
+function openAlbum(id){if(PV.id&&PV.id!==id)stopPreview();alId=id;TRO=-1;renderAlbum();openPage('#al-page')}
 function renderAlbum(){
   const a=S.albums.find(x=>x.id===alId);if(!a){if(stack.includes('#al-page'))closePage('#al-page');return}
   const c=clothOf((a.title||'')+'|'+(a.artist||'')),len=total(a),tr=a.tracks||[];
@@ -1072,7 +1107,7 @@ function renderAlbum(){
   let rows='',ld=null,n=0;
   tr.forEach((x,i)=>{const d=x.d||1;if(discs&&d!==ld){rows+=`<div class="sr-sec">Disc ${d}<span>${tr.filter(y=>(y.d||1)===d).length} tracks</span></div>`;ld=d;n=0}n++;
     const st=PV.id===a.id&&PV.i===i?(PV.loading?'loading':'playing'):'';
-    rows+=`<div class="tr-row ${st} ${(PV.none.has(a.id+':'+i)||x.pv===false)?'none':''}" data-i="${i}"><span class="n" style="--c:${c}">${n}</span><span class="tx">${esc(x.t||'Untitled')}</span><span class="ln">${fmtLen(x.len)}</span><span class="pb" aria-label="Play preview">${PLAY_SVG}</span></div>`});
+    rows+=`<div class="tr-card${TRO===i?' open':''}" data-i="${i}"><div class="tr-row ${st} ${(PV.none.has(a.id+':'+i)||x.pv===false)?'none':''}" data-a="${a.id}" data-i="${i}"><span class="n" style="--c:${c}">${n}</span><span class="tx">${esc(x.t||'Untitled')}</span><span class="ln">${fmtLen(x.len)}</span><span class="pb" aria-label="Play preview">${PLAY_SVG}</span></div><div class="tr-drop">${TRO===i?plDrop(a,i):''}</div></div>`});
   $('#al-body').innerHTML=`<div class="show-head">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div><div class="a"><u data-artist="${esc(a.artist||'Unknown Artist')}">${esc(a.artist||'Unknown Artist')}</u></div><div class="m">${esc([a.type,a.year].filter(Boolean).join(' · '))}</div></div></div>
     <div class="stats two"><div><b>${tr.length}</b><small>Tracks</small></div><div><b>${len?fmtLen(len):'—'}</b><small>Length</small></div></div>
     ${(g=>`<div class="gcard${g.length?'':' none'}" data-n="${Math.min(5,g.length)}">${g.length?g.slice(0,5).map(x=>`<span><i>${esc(x)}</i></span>`).join(''):'<span><i>No genre tags</i></span>'}</div>`)(genresOf(a))}
@@ -1081,9 +1116,112 @@ function renderAlbum(){
     <div class="note">Added ${new Date(a.added).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}${a.cover&&a.coverSrc?' · Cover: '+esc(a.coverSrc):''}${a.mbid?` · <a href="https://musicbrainz.org/release-group/${esc(a.mbid)}" target="_blank" rel="noopener">View on MusicBrainz</a>`:''}</div>`;
 }
 $('#al-body').addEventListener('click',e=>{const u=e.target.closest('[data-artist]');if(u){openArtist(u.dataset.artist);return}
-  const r=e.target.closest('.tr-row');if(r)togglePreview(+r.dataset.i)});
+  const card=e.target.closest('.tr-card');if(!card)return;const i=+card.dataset.i,a=S.albums.find(x=>x.id===alId);if(!a)return;
+  if(e.target.closest('.pb')){PV.ctx=null;togglePreview(i);return}
+  const pk=e.target.closest('.pl-pick');if(pk){plToggle(pk.dataset.p,a,i);paintDrop(a,i);return}
+  if(e.target.closest('#pl-new-go')){plCreateAdd(a,i);return}
+  if(e.target.closest('.tr-drop'))return;
+  // the track itself: open its dropdown (only one at a time, instantly)
+  TRO=TRO===i?-1:i;$$('#al-body .tr-card').forEach(c=>{const on=+c.dataset.i===TRO;c.classList.toggle('open',on);c.querySelector('.tr-drop').innerHTML=on?plDrop(a,+c.dataset.i):''});
+});
+$('#al-body').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pl-new-in'){const a=S.albums.find(x=>x.id===alId);if(a&&TRO>-1)plCreateAdd(a,TRO)}});
 $('#al-back').onclick=()=>{stopPreview();closePage('#al-page')};
 $('#al-edit').onclick=()=>{stopPreview();openEditor(alId)};
+
+/* ================= playlists ================= */
+// a playlist keeps each track as its album and place on it, plus the title (so a track still matches if the album's list
+// is edited and it moves). Tracks whose album is deleted simply drop out.
+const PL_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="#f3eee4" stroke-width="2.4" stroke-linecap="round"><path d="M4 6h11M4 11h11M4 16h7"/><path d="M19 5v10.5"/><circle cx="16.6" cy="16.5" r="2.4" fill="#f3eee4" stroke="none"/></svg>';
+let plId=null;
+function plResolve(it){
+  const a=S.albums.find(x=>x.id===it.a);if(!a||!a.tracks)return null;
+  let i=it.i;if(!a.tracks[i]||(a.tracks[i].t||'')!==it.t){const j=a.tracks.findIndex(x=>(x.t||'')===it.t);if(j<0)return null;i=j}
+  return{a,i,tr:a.tracks[i]};
+}
+const plTracks=pl=>pl.items.map(plResolve).filter(Boolean);
+const plLen=pl=>plTracks(pl).reduce((t,r)=>t+(r.tr.len||0),0);
+const plHasAt=(pl,a,i)=>pl.items.findIndex(it=>{const r=plResolve(it);return r&&r.a===a&&r.i===i});
+function plMeta(pl){const n=plTracks(pl).length,l=plLen(pl);return `${n} track${n===1?'':'s'}${l?' · '+fmtLen(l):''}`}
+function plNew(name){const pl={id:uid(),name:(name||'').trim()||`Playlist ${S.playlists.length+1}`,items:[],created:Date.now()};S.playlists.push(pl);save();return pl}
+// add the track, or take it out if it's already there
+function plToggle(pid,a,i){const pl=S.playlists.find(x=>x.id===pid);if(!pl)return;const k=plHasAt(pl,a,i);
+  if(k>-1){pl.items.splice(k,1);toast(`Removed from ${pl.name}`)}else{pl.items.push({a:a.id,i,t:a.tracks[i].t||''});toast(`Added to ${pl.name}`)}
+  save();if(S.ui.tab==='playlists')render()}
+function plCreateAdd(a,i){const inp=$('#pl-new-in'),pl=plNew(inp&&inp.value);pl.items.push({a:a.id,i,t:a.tracks[i].t||''});save();toast(`Added to ${pl.name}`);paintDrop(a,i);if(S.ui.tab==='playlists')render()}
+// the dropdown under a track in the album window: your playlists (tap to add or take out), or start a new one
+function plDrop(a,i){
+  const list=[...S.playlists].sort((x,y)=>(y.created||0)-(x.created||0));
+  return `<div class="pl-drop"><div class="pl-dh">Add to Playlist</div>${list.map(pl=>{const on=plHasAt(pl,a,i)>-1;
+      return `<button type="button" class="pl-pick${on?' on':''}" data-p="${esc(pl.id)}"><span class="ic" style="--c:${clothOf('pl|'+pl.name)}">${PL_SVG}</span><span class="tx"><b>${esc(pl.name)}</b><small>${esc(plMeta(pl))}</small></span><span class="st">${on?'Added':'Add'}</span></button>`}).join('')}
+    <div class="tg-new"><div class="fc"><label for="pl-new-in">New playlist</label><input id="pl-new-in" autocomplete="off" placeholder="Playlist name" enterkeyhint="done"></div><button type="button" class="card-btn ink" id="pl-new-go">Create</button></div></div>`;
+}
+function paintDrop(a,i){const c=$(`#al-body .tr-card[data-i="${i}"] .tr-drop`);if(c)c.innerHTML=plDrop(a,i)}
+// the Playlists tab: a card for each, newest first
+function renderPlaylists(){
+  const list=[...S.playlists].sort((x,y)=>(y.created||0)-(x.created||0));
+  $('#app').innerHTML=list.length?`<div class="pl-list">${list.map(pl=>`<div class="pl-card" data-p="${esc(pl.id)}"><span class="ic" style="--c:${clothOf('pl|'+pl.name)}">${PL_SVG}</span><div class="main"><div class="t">${esc(pl.name)}</div><div class="m">${esc(plMeta(pl))}</div></div></div>`).join('')}</div>`
+    :`<div class="empty">No playlists yet.<br>Tap <b>New Playlist</b>, or open an album and tap a track to add it to one.</div>`;
+}
+$('#app').addEventListener('click',e=>{const c=e.target.closest('.pl-card');if(c)openPlaylist(c.dataset.p)});
+function newPlaylist(){const pl=plNew('');render();openPlaylist(pl.id,true)}
+function openPlaylist(id,fresh){if(PV.ctx&&PV.ctx.pl!==id)stopPreview();plId=id;renderPlaylist();openPage('#pl-page');
+  if(fresh){const n=$('#pl-name');n.focus();n.select()}}
+// the playlist window: its name, its numbers, a search of every track in the app to add from, then its tracks
+function renderPlaylist(){
+  const pl=S.playlists.find(x=>x.id===plId);if(!pl){if(stack.includes('#pl-page'))closePage('#pl-page');return}
+  $('#pl-title').textContent=pl.name;
+  $('#pl-body').innerHTML=`<div class="fc"><label for="pl-name">Playlist name</label><input id="pl-name" autocomplete="off" value="${esc(pl.name)}" enterkeyhint="done"></div>
+    <div class="stats two" id="pl-stats"></div>
+    <div class="list-divider sm"><span>Add Tracks</span></div>
+    <div class="fc"><label for="pl-q">Search your tracks</label><input id="pl-q" type="search" autocomplete="off" placeholder="Song, artist or album" enterkeyhint="search"></div>
+    <div class="tr-list" id="pl-res"></div>
+    <div class="list-divider sm"><span>Tracks</span></div>
+    <div class="tr-list" id="pl-tracks"></div>`;
+  plPaint();
+}
+function plPaint(){
+  const pl=S.playlists.find(x=>x.id===plId);if(!pl)return;
+  const n=plTracks(pl).length,l=plLen(pl);
+  $('#pl-stats').innerHTML=`<div><b>${n}</b><small>Tracks</small></div><div><b>${l?fmtLen(l):'—'}</b><small>Length</small></div>`;
+  let k=0;
+  $('#pl-tracks').innerHTML=pl.items.map((it,ix)=>{const r=plResolve(it);if(!r)return '';k++;
+    const st=PV.id===r.a.id&&PV.i===r.i&&PV.ctx&&PV.ctx.k===ix?(PV.loading?'loading':'playing'):'';
+    return `<div class="tr-row pl-row ${st} ${(PV.none.has(r.a.id+':'+r.i)||r.tr.pv===false)?'none':''}" data-a="${r.a.id}" data-i="${r.i}" data-k="${ix}"><span class="n" style="--c:${clothOf((r.a.title||'')+'|'+(r.a.artist||''))}">${k}</span><span class="tx"><span class="two"><b>${esc(r.tr.t||'Untitled')}</b><small>${esc((r.a.artist||'Unknown Artist')+' · '+(r.a.title||''))}</small></span></span><span class="ln">${fmtLen(r.tr.len)}</span><span class="pb" aria-label="Play preview">${PLAY_SVG}</span><button type="button" class="x" aria-label="Take out of the playlist">×</button></div>`}).join('')
+    ||'<div class="empty sm">No tracks yet — search above to add some.</div>';
+  plSearch();
+}
+// every saved track whose title, artist or album has the words typed; tap one to add it (tap again to take it out)
+function plSearch(){
+  const pl=S.playlists.find(x=>x.id===plId),inp=$('#pl-q');if(!pl||!inp)return;
+  const q=inp.value.trim().toLowerCase(),box=$('#pl-res');
+  if(!q){box.innerHTML='';return}
+  const words=q.split(/\s+/),hits=[];
+  for(const a of S.albums)(a.tracks||[]).forEach((tr,i)=>{const h=[tr.t,a.artist,a.title].join(' ').toLowerCase();if(words.every(w=>h.includes(w)))hits.push({a,i,tr,
+    rank:(tr.t||'').toLowerCase()===q?0:(tr.t||'').toLowerCase().startsWith(q)?1:(tr.t||'').toLowerCase().includes(q)?2:3})});
+  hits.sort((x,y)=>x.rank-y.rank||(x.tr.t||'').localeCompare(y.tr.t||''));
+  box.innerHTML=hits.length?hits.slice(0,40).map(h=>{const on=plHasAt(pl,h.a,h.i)>-1;
+    return `<div class="tr-row pl-hit${on?' in':''}" data-a="${h.a.id}" data-i="${h.i}"><span class="n" style="--c:${clothOf((h.a.title||'')+'|'+(h.a.artist||''))}">${on?'✓':'+'}</span><span class="tx"><span class="two"><b>${esc(h.tr.t||'Untitled')}</b><small>${esc((h.a.artist||'Unknown Artist')+' · '+(h.a.title||''))}</small></span></span><span class="ln">${fmtLen(h.tr.len)}</span></div>`}).join('')
+    +(hits.length>40?`<div class="note">Showing 40 of ${hits.length}. Type more to narrow it down.</div>`:'')
+    :`<div class="empty sm">No saved tracks match “${esc(inp.value.trim())}”.</div>`;
+}
+$('#pl-body').addEventListener('input',e=>{
+  if(e.target.id==='pl-q'){plSearch();return}
+  if(e.target.id==='pl-name'){const pl=S.playlists.find(x=>x.id===plId);if(!pl)return;pl.name=e.target.value.trim()||'Untitled Playlist';$('#pl-title').textContent=pl.name;save();if(S.ui.tab==='playlists')render()}
+});
+$('#pl-body').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='pl-name'||e.target.id==='pl-q'))e.target.blur()});
+$('#pl-body').addEventListener('click',e=>{
+  const pl=S.playlists.find(x=>x.id===plId);if(!pl)return;
+  const hit=e.target.closest('.pl-hit');
+  if(hit){const a=S.albums.find(x=>x.id===hit.dataset.a),i=+hit.dataset.i;if(!a)return;const k=plHasAt(pl,a,i);
+    if(k>-1)pl.items.splice(k,1);else pl.items.push({a:a.id,i,t:a.tracks[i].t||''});save();plPaint();if(S.ui.tab==='playlists')render();return}
+  const row=e.target.closest('.pl-row');if(!row)return;const ix=+row.dataset.k;
+  if(e.target.closest('.x')){if(PV.ctx&&PV.ctx.pl===pl.id)stopPreview();pl.items.splice(ix,1);save();plPaint();if(S.ui.tab==='playlists')render();return}
+  const a=S.albums.find(x=>x.id===row.dataset.a);if(!a)return;
+  PV.ctx={pl:pl.id,k:ix};togglePreview(+row.dataset.i,a);
+});
+$('#pl-back').onclick=()=>{stopPreview();closePage('#pl-page')};
+$('#pl-del').onclick=()=>{const pl=S.playlists.find(x=>x.id===plId);if(!pl||!confirm(`Delete the playlist “${pl.name}”? The tracks stay in your albums.`))return;
+  stopPreview();S.playlists=S.playlists.filter(x=>x!==pl);save();closePage('#pl-page');render()};
 
 /* ---- artist window ---- */
 let arName=null,arRen=false;
@@ -1135,7 +1273,7 @@ $('#app').addEventListener('click',e=>{
     if(opening)ac.classList.add('open');S.ui.open=opening?[k]:[]}
 });
 $$('#tabs .tab').forEach(t=>t.onclick=()=>{if(S.ui.tab!==t.dataset.tab)setTab(t.dataset.tab)});
-$('#add-card').onclick=()=>openEditor(null);
+$('#add-card').onclick=()=>S.ui.tab==='playlists'?newPlaylist():openEditor(null);
 
 /* ================= add / edit ================= */
 let ED=null,ED0='';
@@ -1700,14 +1838,15 @@ async function previewFor(a,i){
   const c=L.find(x=>trNorm(x.title)===n&&nameNorm(x.artist?.name)===nameNorm(a.artist))||L.find(x=>trNorm(x.title)===n);
   return c?c.preview:'';
 }
-function pvRows(){return $$('#al-body .tr-row')}
+function pvRows(){return $$('#al-body .tr-row[data-a], #pl-tracks .tr-row[data-a]')}
+const pvRow=(id,i)=>pvRows().filter(r=>r.dataset.a===id&&+r.dataset.i===i);
 function pvPaint(){
-  pvRows().forEach(r=>{const on=PV.id===alId&&PV.i===+r.dataset.i;
+  pvRows().forEach(r=>{const inPl=!!r.closest('#pl-tracks'),on=PV.id===r.dataset.a&&PV.i===+r.dataset.i&&(!PV.ctx||!inPl||+r.dataset.k===PV.ctx.k);
     r.classList.toggle('playing',on&&!PV.loading);r.classList.toggle('loading',on&&PV.loading);if(!on)r.style.removeProperty('--p')});
 }
-function stopPreview(){PV.audio.pause();PV.id=null;PV.i=-1;PV.loading=false;pvPaint()}
-async function togglePreview(i){
-  const a=S.albums.find(x=>x.id===alId);if(!a)return;
+function stopPreview(){PV.audio.pause();PV.id=null;PV.i=-1;PV.ctx=null;PV.loading=false;pvPaint()}
+async function togglePreview(i,a=S.albums.find(x=>x.id===alId)){
+  if(!a)return;
   if(PV.id===a.id&&PV.i===i){if(PV.loading)return;if(PV.audio.paused)PV.audio.play().catch(()=>{});else{PV.audio.pause();stopPreview()}return}
   playPreview(a,i);
 }
@@ -1717,7 +1856,7 @@ async function playPreview(a,i){
   try{url=await previewFor(a,i)}catch(_){ if(PV.id===a.id&&PV.i===i){PV.loading=false;stopPreview();toast(navigator.onLine?'Couldn’t reach Deezer. Try again in a moment.':'Previews need a connection.')}return}
   if(PV.id!==a.id||PV.i!==i)return;   // another track was tapped meanwhile
   if(a.tracks[i])a.tracks[i].pv=!!url;
-  if(!url){PV.none.add(a.id+':'+i);const r=pvRows().find(r=>+r.dataset.i===i);if(r)r.classList.add('none');
+  if(!url){PV.none.add(a.id+':'+i);pvRow(a.id,i).forEach(r=>r.classList.add('none'));
     toast('No preview on Deezer for this track');PV.loading=false;nextPreview();return}
   PV.audio.src=url;
   try{await PV.audio.play();PV.loading=false;pvPaint()}
@@ -1725,12 +1864,16 @@ async function playPreview(a,i){
 }
 // at the end of a preview, the next track plays; it stops after the last one
 function nextPreview(){
+  if(PV.ctx&&PV.ctx.pl){   // in a playlist: its next track that has a preview, while the playlist is open
+    const pl=S.playlists.find(x=>x.id===PV.ctx.pl);if(!pl||plId!==pl.id||!stack.includes('#pl-page')){stopPreview();return}
+    for(let k=PV.ctx.k+1;k<pl.items.length;k++){const r=plResolve(pl.items[k]);if(r&&!PV.none.has(r.a.id+':'+r.i)&&r.tr.pv!==false){PV.ctx={pl:pl.id,k};playPreview(r.a,r.i);return}}
+    stopPreview();return}
   const a=S.albums.find(x=>x.id===PV.id);if(!a){stopPreview();return}
   let j=PV.i+1;while(j<a.tracks.length&&(PV.none.has(a.id+':'+j)||a.tracks[j].pv===false))j++;
   if(j<a.tracks.length&&alId===a.id&&stack.includes('#al-page'))playPreview(a,j);else stopPreview();
 }
-PV.audio.addEventListener('timeupdate',()=>{if(PV.id!==alId)return;const r=pvRows().find(r=>+r.dataset.i===PV.i);
-  if(r&&PV.audio.duration)r.style.setProperty('--p',Math.min(1,PV.audio.currentTime/PV.audio.duration))});
+PV.audio.addEventListener('timeupdate',()=>{if(!PV.id||!PV.audio.duration)return;
+  pvRows().filter(r=>r.classList.contains('playing')).forEach(r=>r.style.setProperty('--p',Math.min(1,PV.audio.currentTime/PV.audio.duration)))});
 PV.audio.addEventListener('ended',nextPreview);
 PV.audio.addEventListener('error',()=>{if(PV.id&&!PV.loading){PV.albums.delete(PV.id);stopPreview();toast('That preview didn’t load. Tap it again.')}});
 
@@ -1747,7 +1890,7 @@ function checkPreviews(id){
     }
     a.pvChecked=Date.now();save();
     if(alId===a.id&&stack.includes('#al-page')&&!PV.id)renderAlbum();
-    else if(alId===a.id){pvRows().forEach(r=>{const t=a.tracks[+r.dataset.i];if(t&&t.pv===false)r.classList.add('none')});const nt=$('#al-body .pv-note');if(nt)nt.outerHTML=pvNote(a)}
+    else if(alId===a.id){pvRows().filter(r=>r.dataset.a===a.id).forEach(r=>{const t=a.tracks[+r.dataset.i];if(t&&t.pv===false)r.classList.add('none')});const nt=$('#al-body .pv-note');if(nt)nt.outerHTML=pvNote(a)}
   }).catch(()=>{});
 }
 function pvNote(a){
@@ -1849,7 +1992,7 @@ function libraryJSON(pics=true){
   const noPic=x=>typeof x==='string'&&x.startsWith('data:')?'':x;
   const albums=pics?S.albums:S.albums.map(a=>{const b={...a,cover:noPic(a.cover)};if(!b.cover){delete b.coverTried}return b});
   const artists=pics?S.artists:Object.fromEntries(Object.entries(S.artists||{}).map(([k,e])=>{const v={...e,photo:noPic(e.photo)};if(!v.photo)delete v.tried;return[k,v]}));
-  return JSON.stringify({app:'my-music-chronography',v:3,saved:new Date().toISOString(),albums,artists},null,pics?0:1);
+  return JSON.stringify({app:'my-music-chronography',v:3,saved:new Date().toISOString(),albums,artists,playlists:S.playlists||[]},null,pics?0:1);
 }
 const FS_OK=typeof window.showDirectoryPicker==='function';
 const fsDB=()=>new Promise((res,rej)=>{const r=indexedDB.open('chronography-fs',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
@@ -1951,7 +2094,7 @@ function parseImport(txt){
   const albums=list.filter(a=>a&&a.title).map(a=>({...a,type:TYPES.includes(a.type)?a.type:'Album',tracks:Array.isArray(a.tracks)?a.tracks:[],added:a.added||Date.now(),id:a.id||uid()}));
   if(!albums.length)return{state:'error',msg:'No albums in this backup'};
   const arts=new Set(albums.map(a=>akey(a.artist))).size;
-  return{state:'ok',data:{albums,artists:(d&&typeof d.artists==='object'&&!Array.isArray(d.artists))?d.artists:{}},msg:`${albums.length} release${albums.length===1?'':'s'} · ${arts} artist${arts===1?'':'s'}`};
+  return{state:'ok',data:{albums,artists:(d&&typeof d.artists==='object'&&!Array.isArray(d.artists))?d.artists:{},playlists:Array.isArray(d&&d.playlists)?d.playlists.filter(x=>x&&x.id&&Array.isArray(x.items)):[]},msg:`${albums.length} release${albums.length===1?'':'s'} · ${arts} artist${arts===1?'':'s'}`};
 }
 // merge: adds what's new, keeps what you have (filling in a cover or photo you're missing)
 function mergeImport(d){
@@ -1962,6 +2105,7 @@ function mergeImport(d){
     if(!cur.cover&&a.cover&&!cur.noCover){cur.cover=a.cover;cur.coverSrc=a.coverSrc}
   }
   for(const [k,v] of Object.entries(d.artists||{}))if(v&&v.photo&&!(S.artists[k]&&(S.artists[k].photo||S.artists[k].none)))S.artists[k]=v;
+  for(const pl of d.playlists||[])if(!S.playlists.some(x=>x.id===pl.id))S.playlists.push(pl);   // playlists you don't have yet
   return added;
 }
 // after an import: anything without a cover or photo gets looked up again; previews get checked
@@ -1981,11 +2125,11 @@ $('#imp-file').addEventListener('change',async e=>{
 /* ================= start ================= */
 (async()=>{
   const d=await Store.load();
-  if(d&&Array.isArray(d.albums)){S.albums=d.albums;S.artists=d.artists||{};if(d.backup)S.backup=d.backup;if(d.ui)S.ui={...S.ui,...d.ui,lib:{...S.ui.lib,...d.ui.lib},art:{...S.ui.art,...d.ui.art}}}
+  if(d&&Array.isArray(d.albums)){S.albums=d.albums;S.artists=d.artists||{};S.playlists=Array.isArray(d.playlists)?d.playlists:[];if(d.backup)S.backup=d.backup;if(d.ui)S.ui={...S.ui,...d.ui,lib:{...S.ui.lib,...d.ui.lib},art:{...S.ui.art,...d.ui.art}}}
   S.ui.open=[];LOADED=true;
   // ask the browser to treat this app's storage as permanent (not cleared to free up space)
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
-  setTab(['artists','library','data'].includes(S.ui.tab)?S.ui.tab:'artists');
+  setTab(['artists','library','playlists','data'].includes(S.ui.tab)?S.ui.tab:'artists');
   if(S.albums.length)flush();   // writes both copies, so data saved by the old version gets its localStorage copy too
   for(const x of artistMap().values())autoPhoto(x.name);   // any artist still without a photo (tried at most once a week)
   for(const a of S.albums)if(!a.pvChecked)checkPreviews(a.id);   // albums added before preview checks, or while offline
