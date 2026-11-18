@@ -42,24 +42,26 @@
   #app-footer::before{bottom:100%; margin-bottom:1px; background:linear-gradient(0deg, rgba(0,0,0,.32), rgba(0,0,0,.12) 40%, rgba(0,0,0,0));}
 
   /* search + sort/filter card */
-  #sf-card{flex:1; position:relative; display:flex; align-items:center; justify-content:center; gap:5px; height:45px; padding:0 40px;
+  #sf-card{flex:none; position:relative; display:flex; align-items:center; justify-content:center; gap:5px; height:21px; padding:0 28px; box-sizing:border-box; line-height:15px;
     border:3px solid #000; border-radius:8px; cursor:pointer; user-select:none; white-space:nowrap; overflow:hidden;
-    --l:var(--ink); --r:var(--panel);
-    background:linear-gradient(to right, var(--l) 0 39px, var(--panel) 39px calc(100% - 39px), var(--r) calc(100% - 39px)) border-box;
+    --l:var(--panel); --r:var(--panel);
+    background:linear-gradient(to right, var(--l) 0 27px, var(--panel) 27px calc(100% - 27px), var(--r) calc(100% - 27px)) border-box;
     font:700 min(.74rem,2.95vw) Arial,sans-serif; text-transform:uppercase;}
   #sf-card .sk{color:var(--muted);} #sf-card .sv{color:var(--ink); overflow:hidden; text-overflow:ellipsis;}
   #sf-card .dir{display:inline-block; width:10px; height:10px; flex:none;}
   #sf-card .dir svg{width:100%; height:100%; display:block; transition:transform .2s;}
   #sf-card .dir.up svg{transform:rotate(180deg);}
-  #sf-search, #sf-close{position:absolute; top:0; bottom:0; width:36px; display:flex; align-items:center; justify-content:center;}
+  #sf-search, #sf-close{position:absolute; top:0; bottom:0; width:24px; display:flex; align-items:center; justify-content:center;}
   #sf-search{left:0; border-right:3px solid #000;} #sf-close{right:0; border-left:3px solid #000; display:none;}
-  #sf-search svg, #sf-close svg{width:16px; height:16px; display:block;}
-  #sfq{position:absolute; left:36px; right:36px; top:0; bottom:0; display:none; margin:0; padding:0 8px; border:0; outline:0; background:transparent;
-    font:600 .9rem Georgia,serif; text-transform:none;}
-  #sf-card.searching{--r:#7a2f2b; cursor:text;}
+  #sf-search svg, #sf-close svg{width:12px; height:12px; display:block;}
+  #sf-search svg{stroke:var(--ink);} #sf-card.searching #sf-search svg{stroke:var(--panel);}
+  #sfq{position:absolute; left:24px; right:24px; top:0; bottom:0; display:none; margin:0; padding:0 8px; border:0; outline:0; background:transparent;
+    font:600 .8rem Georgia,serif; text-transform:none;}
+  #sf-card.searching{--l:var(--ink); --r:#7a2f2b; cursor:text;}
   #sf-card.searching .sl{visibility:hidden;}
   #sf-card.searching #sf-close{display:flex;}
   #sf-card.searching #sfq{display:block;}
+  #sf-card.tight .sk.lb{display:none;}   /* when the words don't fit beside the view buttons, just the values show: ALL • ▲ DATE ADDED */
   #sf-card.has-q:not(.searching){--r:#7a2f2b;}
   #sf-card.has-q:not(.searching) #sf-close{display:flex;}
   .sl{display:flex; gap:5px; min-width:0; align-items:center;}
@@ -75,10 +77,10 @@
   .add-card[hidden]{display:none;}
 
   /* ---- shared GT50 pieces ---- */
-  .list-divider{display:flex; align-items:center; gap:10px; height:45px; padding:0 4px;}
+  .list-divider{display:flex; align-items:center; gap:10px; height:24px; flex:none; padding:0 4px;}   /* Stack Tracker's slim divider */
   .list-divider::before, .list-divider::after{content:''; flex:1; height:3px; background:#000; border-radius:2px;}
   .list-divider span{font:600 .9rem Georgia,serif; text-transform:uppercase; letter-spacing:.5px; max-width:75%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .list-divider.sm{height:28px;} .list-divider.sm span{font-size:.78rem;}
+  .list-divider.sm span{font-size:.78rem;}
   .empty{padding:40px 12px; text-align:center; font:.8rem/1.5 Arial,sans-serif; color:var(--muted);}
   .note{font:.66rem/1.45 Arial,sans-serif; color:var(--muted); padding:2px 6px; text-align:center;}
   .note a{color:var(--ink);}
@@ -320,6 +322,16 @@
   .bar i em{display:block; height:100%; background:var(--c);}
   .bar b{text-align:right; color:var(--muted);}
   /* ---- Data: Stats | Backup | Export | Import, laid out like Pod Tracer's Data page ---- */
+  /* like Stack Tracker: List | Covers on top, the search + sort card under it, 21px each — the row stays 45px */
+  #row2{flex-direction:column;}
+  #vw{flex:none; height:21px; border-radius:8px;} #vw button{font-size:min(.74rem,2.95vw); line-height:1;}
+  /* Covers view: just the squares, three across, 4px apart */
+  .cgrid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px;}
+  .ctile{position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; cursor:pointer; user-select:none;}
+  .ctile::after{content:''; position:absolute; inset:0; border:3px solid #000; border-radius:8px; pointer-events:none;}
+  .ctile .art{position:absolute; inset:0; width:100%; height:100%;}
+  .ctile .art.ph span{font-size:min(9vw,64px);}
+  .ctile:active{filter:brightness(.94);}
   #row2d{display:flex;} #row2d[hidden]{display:none;} #row2d .seg{flex:1; height:42px;}
   body.dt-fit #app{height:calc(100dvh - var(--header-h,90px) - var(--footer-h,60px) - 8px);}
   .dt-card{display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; flex:none;
@@ -517,11 +529,12 @@ start();
   </div>
   <div class="hdr-row" id="row2d" hidden><div class="seg" id="dt-tabs"><button type="button" data-dt="stats">Stats</button><button type="button" data-dt="backup">Backup</button><button type="button" data-dt="export">Export</button><button type="button" data-dt="import">Import</button></div></div>
   <div class="hdr-row" id="row2">
+    <div class="seg" id="vw"><button type="button" data-v="list" class="on">List</button><button type="button" data-v="covers">Covers</button></div>
     <div id="sf-card">
       <span id="sf-search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><circle cx="10" cy="10" r="6.5"/><path d="M15 15l6 6"/></svg></span>
       <input id="sfq" type="text" aria-label="Search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
       <span id="sf-close" aria-label="Clear search"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
-      <span class="sl"><span class="sk">Filter by:</span><span class="sv" id="sf-filter">All</span><span class="sk">• Sort by:</span><i class="dir" id="sf-dir"><svg viewBox="0 0 40 40"><polygon points="10.4,11 29.6,11 20,27.6" fill="#000" stroke="#000" stroke-width="5" stroke-linejoin="round"/></svg></i><span class="sv" id="sf-sort">Date added</span></span>
+      <span class="sl"><span class="sk lb">Filter by:</span><span class="sv" id="sf-filter">All</span><span class="sk">•</span><span class="sk lb">Sort by:</span><i class="dir" id="sf-dir"><svg viewBox="0 0 40 40"><polygon points="10.4,11 29.6,11 20,27.6" fill="#000" stroke="#000" stroke-width="5" stroke-linejoin="round"/></svg></i><span class="sv" id="sf-sort">Date added</span></span>
     </div>
   </div>
 </div>
@@ -769,13 +782,17 @@ function setTab(t){
   S.ui.open=[];   // dropdowns always start closed
   S.ui.tab=t;save();Q='';$('#sfq').value='';$('#sf-card').classList.remove('searching','has-q');
   $$('#tabs .tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
-  $('#row2').hidden=t==='data';$('#row2d').hidden=t!=='data';
+  $('#row2').hidden=t==='data';$('#row2d').hidden=t!=='data';paintVw();
   $('#add-card').hidden=t==='data';$('#dt-foot').hidden=t!=='data';
   if(t!=='data'){$('#app-footer').hidden=false;document.body.classList.remove('no-foot','dt-fit')}
   measure();render();scrollTo(0,0);
 }
 function render(){({library:renderLib,artists:renderArtists,data:renderData})[S.ui.tab]();renderSf()}
 let DTV='stats';   // which part of Data is showing
+const vw=()=>((S.ui.view||{})[S.ui.tab])||'list';
+function paintVw(){$$('#vw button').forEach(b=>b.classList.toggle('on',b.dataset.v===vw()))}
+$('#vw').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(!b||vw()===b.dataset.v)return;
+  S.ui.view={...(S.ui.view||{}),[S.ui.tab]:b.dataset.v};save();paintVw();render();scrollTo(0,0)});
 function renderSf(){
   const t=S.ui.tab;if(t==='data')return;
   const u=t==='library'?S.ui.lib:S.ui.art,list=t==='library'?LIB_SORTS:ART_SORTS;
@@ -783,6 +800,8 @@ function renderSf(){
   $('#sf-sort').textContent=(list.find(s=>s.k===u.sort)||list[0]).n;
   $('#sf-dir').classList.toggle('up',u.dir===(list.find(s=>s.k===u.sort)||list[0]).def);
   $('#sfq').placeholder='Artists, titles, genres, songs';
+  const c=$('#sf-card'),sl=c.querySelector('.sl');c.classList.remove('tight');
+  if([...sl.querySelectorAll('.sv')].some(e=>e.scrollWidth>e.clientWidth+1))c.classList.add('tight');
 }
 function albMini(a,hit){
   const meta=a.year||'',len=total(a),hm=len?`${Math.floor(len/3600)}:${String(Math.round(len%3600/60)%60).padStart(2,'0')}`:'—';
@@ -799,6 +818,7 @@ function renderLib(){
   const c=cmpAlb(u.sort);list.sort((x,y)=>c(x.a,y.a)*u.dir);
   let h='',last=null;
   for(const {a,m} of list){const g=groupOf(u.sort,a);if(g!==null&&g!==last){h+=`<div class="list-divider"><span>${esc(g)}</span></div>`;last=g}h+=albRow(a,m.track)}
+  if(vw()==='covers'&&list.length)h=`<div class="cgrid">${list.map(({a})=>`<div class="ctile" data-id="${a.id}" aria-label="${esc(a.title)}">${artHTML(a)}</div>`).join('')}</div>`;
   if(!S.albums.length)h=`<div class="empty">Your crate is empty.<br>Tap <b>Add New Album</b> to look one up.</div>`;
   else if(!list.length)h=`<div class="empty">Nothing matches${q?` “${esc(Q.trim())}”`:''}${u.filter!=='All'?` in ${TYPE_PL[u.filter]}`:''}.</div>`;
   $('#app').innerHTML=h;
@@ -824,9 +844,10 @@ function renderArtists(){
     if(u.sort==='name'){const L=(sortKey(x.name)[0]||'#').toUpperCase(),g=/[A-Z]/.test(L)?L:'#';if(g!==last){h+=`<div class="list-divider"><span>${g}</span></div>`;last=g}}
     const len=x.albums.reduce((t,a)=>t+total(a),0),k=akey(x.name),isOpen=open.has(k)||(q&&!x.nameHit);
     const rows=x.shown.sort((p,r)=>byYear(p.a,r.a)).map(y=>albMini(y.a,y.hit)).join('');
-    h+=`<div class="ac ${isOpen?'open':''}" data-k="${esc(k)}" data-artist="${esc(x.name)}"><div class="ac-head">${artistArt(x.name)}<div class="main"><div class="t">${esc(x.name)}</div><div class="m">${esc(typeCounts(x.albums))}${len?' · '+fmtLong(len):''}</div></div><div class="cnt">${x.shown.length}${TRI_DN}</div></div>
+    h+=`<div class="ac ${isOpen?'open':''}" data-k="${esc(k)}" data-artist="${esc(x.name)}"><div class="ac-head">${artistArt(x.name)}<div class="main"><div class="t">${esc(x.name)}</div><div class="m">${esc(typeCounts(x.albums))}${len?' · '+fmtLong(len):''}</div></div></div>
       <div class="ac-drop"><div class="ac-in"><div class="ac-list">${rows}<button type="button" class="ac-page">Artist Page</button></div></div></div></div>`;
   }
+  if(vw()==='covers'&&list.length)h=`<div class="cgrid">${list.map(x=>`<div class="ctile" data-artist="${esc(x.name)}" aria-label="${esc(x.name)}">${artistArt(x.name)}</div>`).join('')}</div>`;
   if(!S.albums.length)h=`<div class="empty">Your collection is empty.<br>Tap <b>Add New Album</b> to look one up.</div>`;
   else if(!list.length)h=`<div class="empty">Nothing matches${q?` “${esc(Q.trim())}”`:''}${u.filter!=='All'?` in ${TYPE_PL[u.filter]}`:''}.</div>`;
   $('#app').innerHTML=h;
@@ -1036,6 +1057,7 @@ $('#ar-file').addEventListener('change',async e=>{const f=e.target.files[0];e.ta
 
 /* ---- main list taps ---- */
 $('#app').addEventListener('click',e=>{
+  const ct=e.target.closest('.ctile');if(ct){if(ct.dataset.id)openAlbum(ct.dataset.id);else openArtist(ct.dataset.artist);return}
   const r=e.target.closest('.alb');if(r){openAlbum(r.dataset.id);return}
   const ac=e.target.closest('.ac');if(!ac)return;
   if(e.target.closest('.ac-page')){openArtist(ac.dataset.artist);return}
