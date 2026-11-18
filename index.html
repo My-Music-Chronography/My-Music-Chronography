@@ -488,11 +488,13 @@ frame(t,o,U){
 }});
 
 const spl=document.getElementById('spl'),svg=document.getElementById('spl-svg');let raf=0,T0=0,o=null,U=null,ended=false;
-// sized and placed to match Chrome's own launch screen: the icon is 71.1% of the screen's width, centered.
-// Installed, the page starts below the status bar, so the picture shifts to sit where Chrome's was
+// sized and placed to match Android's own launch screen (measured on the phone): the icon is 62.5% of the
+// screen's width, centered on the whole physical screen, status bar and navigation bar included.
+// Installed, the page starts below the status bar, so the picture moves down to sit exactly where Android's was
 function start(){
-  const W=innerWidth,H=innerHeight,iw=Math.min(W,H/1.2)*.711,s=iw/512;
-  const app=matchMedia('(display-mode: standalone)').matches,shift=app?Math.max(0,(screen.height-H)/2-24):0;
+  const W=innerWidth,H=innerHeight,iw=Math.min(W,H/1.2)*.625,s=iw/512;
+  const app=matchMedia('(display-mode: standalone)').matches,bars=Math.max(0,screen.height-H),topBar=Math.min(bars,27);
+  const shift=app?screen.height/2-topBar-H/2:0;   // how far below the page's middle the screen's middle sits
   U={l:-(W-iw)/2/s,r:512+(W-iw)/2/s,t:-((H-iw)/2+shift)/s,b:512+((H-iw)/2-shift)/s};
   svg.setAttribute('viewBox',`${U.l} ${U.t} ${U.r-U.l} ${U.b-U.t}`);
   const defs=mk('defs',{},svg),root=mk('g',{},svg);o=IC.build(root,U,defs);IC.frame(0,o,U);
