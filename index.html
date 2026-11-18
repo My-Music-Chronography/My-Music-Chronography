@@ -162,6 +162,14 @@
   .ac-page:active{background:var(--bg);}
   /* the artist window: their photo, and where it came from */
   .gtags{display:flex; flex-wrap:wrap; gap:4px;}
+  /* the album's genres: one full-width 28px card, a section for each (up to 5) */
+  .gcard{display:flex; min-height:28px; flex:none; gap:3px; background:#000; border:3px solid #000; border-radius:8px; overflow:hidden;}
+  .gcard span{flex:1 1 0; min-width:0; display:flex; align-items:center; justify-content:center; padding:0 4px; background:#fff;
+    font:700 min(.6rem,2.5vw) Arial,sans-serif; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
+  .gcard span{padding:2px 4px; line-height:1.1;}
+  .gcard i{font-style:normal; min-width:0; text-align:center; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}   /* a second line if it needs one */
+  .gcard[data-n="4"] span, .gcard[data-n="5"] span{font-size:min(.52rem,2.1vw); letter-spacing:.2px; padding:2px 3px;}
+  .gcard.none span{color:var(--muted); background:var(--unread);}
   .gtags span{height:24px; display:flex; align-items:center; padding:0 9px; background:#fff; border:3px solid #000; border-radius:6px;
     font:700 .58rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase;}
   .ph-btns{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px;}
@@ -312,7 +320,11 @@
   .stats > div{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:45px; padding:4px; background:#fff; text-align:center;}
   .stats b{font:700 .84rem/1.1 Georgia,serif; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .stats small{font:700 .5rem Arial,sans-serif; letter-spacing:.7px; text-transform:uppercase; color:var(--muted);}
-  .stats.three{grid-template-columns:repeat(3, minmax(0,1fr));}
+  .stats.three{grid-template-columns:repeat(3, minmax(0,1fr));} .stats.two{grid-template-columns:repeat(2, minmax(0,1fr));}
+  /* the album window's: the name sits at the top, the figure larger and bolder, centered in the room below */
+  .stats.two > div{display:grid; grid-template-rows:auto 1fr; justify-items:center; align-items:center; gap:0; min-height:45px; padding:3px 4px 1px;}
+  .stats.two small{grid-row:1; align-self:start;}
+  .stats.two b{grid-row:2; font:800 1.2rem/1 Georgia,serif;}
   .tr-row{display:flex; align-items:stretch; min-height:40px; background:#fff;}
   .tr-row .n{flex:none; width:38px; display:flex; align-items:center; justify-content:center; background:var(--c); border-right:3px solid #000;
     color:#fff; font:700 .72rem Arial,sans-serif; font-variant-numeric:tabular-nums;}
@@ -321,6 +333,10 @@
   .tr-row.hl .tx{color:#7a2f2b;}
   /* 30-second previews: play button on each track; the row fills as it plays */
   .tr-row{position:relative; cursor:pointer;}
+  /* the album window's tracklist: the heading card, then each track as its own card */
+  .tr-list{display:flex; flex-direction:column; gap:4px;}
+  .tr-list .sr-sec{height:28px; border:3px solid #000; border-radius:8px;}
+  .tr-list .tr-row{min-height:45px; border:3px solid #000; border-radius:8px; overflow:hidden;}
   .tr-row::before{content:''; position:absolute; left:38px; top:0; bottom:0; width:calc((100% - 38px - 41px) * var(--p,0)); background:rgba(91,102,51,.16); pointer-events:none;}
   .tr-row .tx, .tr-row .ln{position:relative;}
   .tr-row .pb{flex:none; position:relative; width:41px; display:grid; place-items:center; border-left:3px solid #000; background:var(--unread);}
@@ -824,7 +840,7 @@ function groupOf(k,a){
 let Q='';   // the search text for the tab on screen
 function matchAlb(a,q){
   if(!q)return{ok:true};
-  const h=[a.title,a.artist,a.genre,a.label,a.year,a.type].join(' ').toLowerCase();
+  const h=[a.title,a.artist,a.genre,a.year,a.type].join(' ').toLowerCase();
   if(h.includes(q))return{ok:true};
   const t=(a.tracks||[]).find(x=>(x.t||'').toLowerCase().includes(q));
   return t?{ok:true,track:t.t}:{ok:false};
@@ -1058,9 +1074,9 @@ function renderAlbum(){
     const st=PV.id===a.id&&PV.i===i?(PV.loading?'loading':'playing'):'';
     rows+=`<div class="tr-row ${st} ${(PV.none.has(a.id+':'+i)||x.pv===false)?'none':''}" data-i="${i}"><span class="n" style="--c:${c}">${n}</span><span class="tx">${esc(x.t||'Untitled')}</span><span class="ln">${fmtLen(x.len)}</span><span class="pb" aria-label="Play preview">${PLAY_SVG}</span></div>`});
   $('#al-body').innerHTML=`<div class="show-head">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div><div class="a"><u data-artist="${esc(a.artist||'Unknown Artist')}">${esc(a.artist||'Unknown Artist')}</u></div><div class="m">${esc([a.type,a.year].filter(Boolean).join(' · '))}</div></div></div>
-    <div class="stats three"><div><b>${tr.length}</b><small>Tracks</small></div><div><b>${len?fmtLen(len):'—'}</b><small>Length</small></div><div><b>${esc(a.label||'—')}</b><small>Label</small></div></div>
-    ${genresOf(a).length?`<div class="gtags">${genresOf(a).map(g=>`<span>${esc(g)}</span>`).join('')}</div>`:''}
-    ${tr.length?`<div class="list-divider sm"><span>Tracklist</span></div><div class="sr-list">${!discs?`<div class="sr-sec">${tr.length} tracks<span>${len?fmtLen(len):''}</span></div>`:''}${rows}</div>`:`<div class="empty">No tracks listed. Tap <b>Edit</b> to add them.</div>`}
+    <div class="stats two"><div><b>${tr.length}</b><small>Tracks</small></div><div><b>${len?fmtLen(len):'—'}</b><small>Length</small></div></div>
+    ${(g=>`<div class="gcard${g.length?'':' none'}" data-n="${Math.min(5,g.length)}">${g.length?g.slice(0,5).map(x=>`<span><i>${esc(x)}</i></span>`).join(''):'<span><i>No genre tags</i></span>'}</div>`)(genresOf(a))}
+    ${tr.length?`<div class="list-divider sm"><span>Tracklist</span></div><div class="tr-list">${rows}</div>`:`<div class="empty">No tracks listed. Tap <b>Edit</b> to add them.</div>`}
     ${tr.length?`<div class="note">${pvNote(a)}</div>`:''}
     <div class="note">Added ${new Date(a.added).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}${a.cover&&a.coverSrc?' · Cover: '+esc(a.coverSrc):''}${a.mbid?` · <a href="https://musicbrainz.org/release-group/${esc(a.mbid)}" target="_blank" rel="noopener">View on MusicBrainz</a>`:''}</div>`;
 }
@@ -1125,7 +1141,7 @@ $('#add-card').onclick=()=>openEditor(null);
 let ED=null,ED0='';
 const edSnap=()=>JSON.stringify({...ED,typeTouched:0});
 const edDirty=()=>ED&&edSnap()!==ED0;
-function blankAlbum(){return{id:null,type:'Album',title:'',artist:'',year:'',genre:'',label:'',cover:'',tracks:[],mbid:'',relId:'',added:0}}
+function blankAlbum(){return{id:null,type:'Album',title:'',artist:'',year:'',genre:'',cover:'',tracks:[],mbid:'',relId:'',added:0}}
 function openEditor(id){
   const a=id?S.albums.find(x=>x.id===id):null;
   ED=a?JSON.parse(JSON.stringify(a)):blankAlbum();ED.typeTouched=!!a;ED0=edSnap();
@@ -1194,7 +1210,7 @@ $('#ed-cancel').onclick=()=>{if(edDirty()&&!confirm('Discard this album?'))retur
 $('#ed-save').onclick=()=>{
   if($('#ed-save').disabled)return;
   const a={...ED};delete a.typeTouched;
-  a.title=a.title.trim();a.artist=a.artist.trim();a.genre=normGenres(a.genre);a.label=(a.label||'').trim();
+  a.title=a.title.trim();a.artist=a.artist.trim();a.genre=normGenres(a.genre);delete a.label;
   a.tracks=a.tracks.filter(x=>(x.t||'').trim()||x.len).map(x=>({t:(x.t||'').trim(),len:x.len||0,d:x.d||1}));
   if(a.id){const i=S.albums.findIndex(x=>x.id===a.id),o=S.albums[i];
     if(o&&(nameNorm(o.title)!==nameNorm(a.title)||nameNorm(o.artist)!==nameNorm(a.artist)))delete a.dzAlbum;
@@ -1338,14 +1354,14 @@ const S3D=(()=>{
         best.out.forEach(r=>{x.font=`${best.fs}px Georgia`;x.fillStyle='#8a8378';x.fillText(r.num,r.X,r.Y+best.fs*.85);
           x.fillStyle='#2b2620';r.lines.forEach((l,k)=>x.fillText(l,r.X+r.nw,r.Y+best.fs*.85+k*best.lh))})}}
     x.fillStyle='#2b2620';x.fillRect(L,n*.9,Rt-L,n*.003);
-    x.font=`${n*.02}px Arial`;x.fillStyle='#8a8378';x.fillText(fit([ED.label,ED.year,N?`${N} track${N===1?'':'s'}`:''].filter(Boolean).join(' · '),Rt-L-n*.2),L,n*.94);
+    x.font=`${n*.02}px Arial`;x.fillStyle='#8a8378';x.fillText(fit([ED.year,N?`${N} track${N===1?'':'s'}`:''].filter(Boolean).join(' · '),Rt-L-n*.2),L,n*.94);
     for(let i=0;i<30;i++){x.fillStyle='#2b2620';x.fillRect(Rt-n*.16+i*n*.0052,n*.912,n*(.002+((i*7)%5)*.0014),n*.05)}
     return tex(c);
   }
   // only what changed is redrawn
   function update(){
     if(!ok)return;const {t,a}=nm(),tr=(ED.tracks||[]).map(r=>r.t||'').join('\n');
-    const f=t+'|'+a+'|'+(ED.cover?ED.cover.length+ED.cover.slice(-60):''),l=t+'|'+a+'|'+ED.type,b=t+'|'+a+'|'+tr+'|'+(ED.label||'')+'|'+(ED.year||'');
+    const f=t+'|'+a+'|'+(ED.cover?ED.cover.length+ED.cover.slice(-60):''),l=t+'|'+a+'|'+ED.type,b=t+'|'+a+'|'+tr+'|'+(ED.year||'');
     if(sig.f!==f){sig.f=f;front()}
     if(sig.l!==l){sig.l=l;[discA,discB].forEach((m,i)=>{if(m.map)m.map.dispose();m.map=recordFace(i?'SIDE B':'SIDE A');m.needsUpdate=true})}
     if(sig.b!==b){sig.b=b;if(backMat.map)backMat.map.dispose();backMat.map=backFace();backMat.needsUpdate=true}
@@ -1508,7 +1524,7 @@ async function toggleEds(g){
   // runtimes, one edition at a time; stops as soon as the list closes or something else is picked
   for(const E of EDC[g.id].slice(0,15)){
     if(E.len!=null)continue;if(gen!==EDGEN)return;
-    try{E.full=await mb(`release/${E.rel.id}?inc=recordings+labels+genres`);E.len=relLen(E.full)}catch(_){E.len=0}
+    try{E.full=await mb(`release/${E.rel.id}?inc=recordings+genres`);E.len=relLen(E.full)}catch(_){E.len=0}
     if(gen===EDGEN)paintEds(g);
   }
 }
@@ -1538,15 +1554,14 @@ async function fetchAlbum(g,E){
   const rg=await mb(`release-group/${g.id}?inc=genres+tags+releases+artist-credits`);
   const asEd=!!(E&&!E.def),pick=asEd?E.rel:realRels(rg.releases||[])[0];
   let rel=null;
-  if(pick)rel=E&&E.full&&E.full.id===pick.id?E.full:await mb(`release/${pick.id}?inc=recordings+labels+genres`);
+  if(pick)rel=E&&E.full&&E.full.id===pick.id?E.full:await mb(`release/${pick.id}?inc=recordings+genres`);
   const tracks=[];
   (rel?.media||[]).forEach((m,mi)=>(m.tracks||[]).forEach(t=>tracks.push({t:t.title||t.recording?.title||'',len:Math.round((t.length||t.recording?.length||0)/1000),d:m.position||mi+1})));
   const gen=[...(rg.genres||[]),...(rel?.genres||[])].sort((a,b)=>(b.count||0)-(a.count||0));
   const tags=(rg.tags||[]).sort((a,b)=>(b.count||0)-(a.count||0));
   const genre=normGenres((gen.length?gen:tags).filter(x=>(x.count||0)>0||gen.length).slice(0,3).map(x=>cap1(x.name)).join(', '));   // up to three, most-voted first
-  const label=(rel?.['label-info']||[]).map(x=>x.label?.name).filter(Boolean)[0]||'';
   const out={title:asEd?E.name:(rg.title||g.title),artist:creditOf(rg['artist-credit']||g['artist-credit']),year:(rg['first-release-date']||g['first-release-date']||'').slice(0,4),
-    genre,label,tracks,mbid:g.id,relId:asEd?pick.id:'',arMbid:((rg['artist-credit']||g['artist-credit']||[])[0]||{}).artist?.id||'',type:mbType(rg['primary-type']||g['primary-type'])};
+    genre,tracks,mbid:g.id,relId:asEd?pick.id:'',arMbid:((rg['artist-credit']||g['artist-credit']||[])[0]||{}).artist?.id||'',type:mbType(rg['primary-type']||g['primary-type'])};
   // the cover: kept in the app as a small picture so it shows offline; if that isn't allowed, linked instead.
   // An edition tries its own cover first.
   const tries=[...(asEd?[`https://coverartarchive.org/release/${pick.id}/front-500`]:[]),`https://coverartarchive.org/release-group/${g.id}/front-500`,...(!asEd&&rel?[`https://coverartarchive.org/release/${rel.id}/front-500`]:[])];
