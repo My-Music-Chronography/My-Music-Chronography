@@ -140,21 +140,23 @@
   .ac-head .cnt svg{width:10px; height:10px; display:block; transition:transform .25s;}
   .ac.open .ac-head .cnt{background:var(--ink); color:#fff;}
   .ac.open .ac-head .cnt svg{transform:rotate(180deg);} .ac.open .ac-head .cnt polygon{fill:#fff; stroke:#fff;}
-  .ac-drop{display:grid; grid-template-rows:0fr; transition:grid-template-rows .28s ease;}
-  .ac.open .ac-drop{grid-template-rows:1fr;}
-  .ac-in{min-height:0; overflow:hidden;}
+  .ac-drop{display:none;}                 /* opens and closes instantly */
+  .ac.open .ac-drop{display:block;}
   .ac-list{display:flex; flex-direction:column; gap:4px; padding:4px; border-top:3px solid #000; background:var(--unread);}
-  /* a dropdown album: one 28px line — cover, title, year · length, type */
-  .alb.mini{height:28px; border-radius:6px;} .alb.mini::after{border-radius:6px;}
-  .alb.mini .art{width:25px; --sz:25px; border-right-width:3px;} .alb.mini .art.ph svg, .ac-head .art.ph svg{display:none;} .alb.mini .art.ph, .ac-head .art.ph{gap:0;} .alb.mini .art.ph span{font-size:.62rem;}
-  .alb.mini .main{flex-direction:row; align-items:center; gap:8px; padding:0 8px;}
-  .alb.mini .t{flex:1; min-width:0; font-size:.78rem;}
-  .alb.mini .m, .alb.mini .hit{flex:none; max-width:45%; font-size:.5rem;}
-  .alb.mini .hit{font-size:.6rem;}
-  .alb.mini .ty{width:44px; border-left-width:3px;} .alb.mini .ty span{writing-mode:horizontal-tb; transform:none; font-size:.5rem; letter-spacing:.8px;}
-  .ac-page{height:28px; margin:0; border:3px solid #000; border-radius:6px; background:#fff; font:700 .62rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--ink);}
+  /* a dropdown album: a standard 45px card — cover, the title with the year under it (sitting at the card's bottom), type */
+  .alb.mini{height:45px;}
+  .alb.mini .art{width:42px; --sz:42px;} .alb.mini .art.ph svg, .ac-head .art.ph svg{display:none;} .alb.mini .art.ph, .ac-head .art.ph{gap:0;} .alb.mini .art.ph span{font-size:.9rem;}
+  .alb.mini .main{justify-content:flex-start; gap:0; padding:2px 10px 4px;}
+  .alb.mini .t{flex:1; min-height:0; display:flex; align-items:center; font-size:.78rem; line-height:1.02; white-space:normal; padding-top:2px;}   /* centered in the space above the year */
+  .alb.mini .t span{min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere;}   /* wraps to a second line when it needs to */
+  .alb.mini .m, .alb.mini .hit{font-size:.54rem; line-height:1;}
+  .alb.mini .hit{font-size:.62rem;}
+  .alb.mini .rt{flex:none; width:50px; display:flex; align-items:center; justify-content:center; border-left:3px solid #000; background:var(--unread);
+    font:700 .66rem Arial,sans-serif; font-variant-numeric:tabular-nums; letter-spacing:.2px; color:var(--ink);}   /* running time, hours:minutes — room for 999:59 */
+  .alb.mini .rt.none{color:var(--muted);}
+  .alb.mini .ty{width:23px;} .alb.mini .ty span{font-size:.46rem; letter-spacing:.5px;}   /* half as wide, the type reads sideways */
+  .ac-page{height:32px; margin:0; border:3px solid #000; border-radius:6px; background:#fff; font:700 .62rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--ink);}
   .ac-page:active{background:var(--bg);}
-  @media (prefers-reduced-motion:reduce){ .ac-drop{transition:none;} }
   /* the artist window: their photo, and where it came from */
   .gtags{display:flex; flex-wrap:wrap; gap:4px;}
   .gtags span{height:24px; display:flex; align-items:center; padding:0 9px; background:#fff; border:3px solid #000; border-radius:6px;
@@ -702,6 +704,7 @@ function matchAlb(a,q){
 
 /* ================= rendering: tabs ================= */
 function setTab(t){
+  S.ui.open=[];   // dropdowns always start closed
   S.ui.tab=t;save();Q='';$('#sfq').value='';$('#sf-card').classList.remove('searching','has-q');
   $$('#tabs .tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
   $('#row2').hidden=t==='data';$('#app-header').classList.toggle('bare',t==='data');
@@ -718,8 +721,8 @@ function renderSf(){
   $('#sfq').placeholder='Artists, titles, genres, songs';
 }
 function albMini(a,hit){
-  const len=total(a),meta=[a.year,len?fmtLen(len):''].filter(Boolean).join(' · ');
-  return `<div class="alb mini" data-id="${a.id}">${artHTML(a)}<div class="main"><div class="t">${esc(a.title||'Untitled')}</div>${hit?`<div class="hit">♪ ${esc(hit)}</div>`:`<div class="m">${esc(meta)}</div>`}</div><div class="ty" style="--tc:${TYPE_C[a.type]}"><span>${esc(a.type)}</span></div></div>`;
+  const meta=a.year||'',len=total(a),hm=len?`${Math.floor(len/3600)}:${String(Math.round(len%3600/60)%60).padStart(2,'0')}`:'—';
+  return `<div class="alb mini" data-id="${a.id}">${artHTML(a)}<div class="main"><div class="t"><span>${esc(a.title||'Untitled')}</span></div>${hit?`<div class="hit">♪ ${esc(hit)}</div>`:meta?`<div class="m">${esc(meta)}</div>`:''}</div><div class="rt${len?'':' none'}">${hm}</div><div class="ty" style="--tc:${TYPE_C[a.type]}"><span>${esc(a.type)}</span></div></div>`;
 }
 function albRow(a,hit,own){   // own: shown under its artist already, so the artist line is left off
   const len=total(a),n=(a.tracks||[]).length;
@@ -893,7 +896,8 @@ $('#app').addEventListener('click',e=>{
   const ac=e.target.closest('.ac');if(!ac)return;
   if(e.target.closest('.ac-page')){openArtist(ac.dataset.artist);return}
   if(e.target.closest('.ac-head')){const k=ac.dataset.k,o=new Set(S.ui.open||[]);
-    if(ac.classList.toggle('open'))o.add(k);else o.delete(k);S.ui.open=[...o];save()}
+    const opening=!ac.classList.contains('open');$$('#app .ac.open').forEach(x=>x.classList.remove('open'));   // only one open at a time
+    if(opening)ac.classList.add('open');S.ui.open=opening?[k]:[]}
 });
 $$('#tabs .tab').forEach(t=>t.onclick=()=>{if(S.ui.tab!==t.dataset.tab)setTab(t.dataset.tab)});
 $('#add-card').onclick=()=>openEditor(null);
@@ -1392,7 +1396,7 @@ $('#imp-file').addEventListener('change',async e=>{const f=e.target.files[0];e.t
 (async()=>{
   const d=await Store.load();
   if(d&&Array.isArray(d.albums)){S.albums=d.albums;S.artists=d.artists||{};if(d.ui)S.ui={...S.ui,...d.ui,lib:{...S.ui.lib,...d.ui.lib},art:{...S.ui.art,...d.ui.art}}}
-  LOADED=true;
+  S.ui.open=[];LOADED=true;
   // ask the browser to treat this app's storage as permanent (not cleared to free up space)
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
   setTab(['artists','library','data'].includes(S.ui.tab)?S.ui.tab:'artists');
