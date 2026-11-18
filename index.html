@@ -249,6 +249,16 @@
   .lk-row.sel{background:#f3f1e6;}
   .lk-ck.own{cursor:default; background:var(--hdr-cell);} .lk-ck.own b{font:700 .46rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); writing-mode:vertical-rl; transform:rotate(180deg);}
   .lk-row.ok .lk-ck{background:#2e4636;} .lk-row.fail .lk-ck{background:var(--red);}
+  /* editions: a narrow sideways tab on each result opens that album's versions (deluxe, expanded, remasters…) underneath */
+  .lk-edb{flex:none; align-self:stretch; width:24px; display:grid; place-items:center; border-left:3px solid #000; background:var(--hdr-cell); cursor:pointer;}
+  .lk-edb b{font:700 .46rem Arial,sans-serif; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap;}
+  .lk-edb.on{background:var(--ink);} .lk-edb.on b{color:#fff;}
+  .lk-eds{display:flex; flex-direction:column; gap:3px; background:#000;}
+  .lk-eds .lk-row{border-left:12px solid var(--ink); min-height:46px; background:#faf8f1;}
+  .lk-eds .lk-row.sel{background:#f3f1e6;}
+  .lk-eds .lk-row .art{width:46px; --sz:46px;}
+  .lk-edst{padding:10px 12px 10px 24px; background:var(--unread); font:.72rem/1.3 Arial,sans-serif; color:var(--muted); display:flex; align-items:center;}
+  .lk-row .tg.og{color:#2e4636;}
   .sr-sec button{margin:0; padding:0; border:0; background:none; font:700 .56rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--ink); text-decoration:underline; cursor:pointer;}
   #lk-bar{position:sticky; bottom:0; z-index:6; display:flex; gap:4px; padding:4px 4px calc(4px + env(safe-area-inset-bottom)); background:var(--band); border-top:3px solid #000; border-bottom:3px solid #000;}
   #lk-bar[hidden]{display:none;}
@@ -441,15 +451,27 @@ function charPos(par,str,size,font,weight,ls=0,fit=0){
 const wipe=(defs)=>{const id=uid('w'),cp=mk('clipPath',{id},defs),r=mk('rect',{x:-5000,y:-5000,width:0,height:10000},cp);return{url:`url(#${id})`,r}};
 
 
+// the back of the bottom record: sixteen dates evenly round it. Each play picks every year, every 5 or every 10, and a
+// random place to start (the last one is never past this year)
+const DEC_N=16,DEC_STEP=360/DEC_N;
+function pickDates(){const step=[1,5,10][Math.floor(Math.random()*3)],last=Math.floor(new Date().getFullYear()/step)*step;
+  const lo=Math.ceil((step===10?1850:1900)/step),hi=(last-(DEC_N-1)*step)/step,first=(lo+Math.floor(Math.random()*(hi-lo+1)))*step;
+  return Array.from({length:DEC_N},(_,k)=>first+k*step)}
 /* 8 — records peel off the pile and flip face-on; two become the O's of CHRONOGRAPHY,
    the other two swing out to frame the screen: one as a giant half-record across the top, one across the bottom */
-const IC=({name:'Record Stack',note:'Two random records frame the screen top and bottom; the other two become the O’s.',style:'Records as the O’s, a third of a record framing top and bottom',
-build(root,U,defs){const o={};const lay=[[376,C.teal,-34],[292,C.olive,30],[208,C.blue,-22],[124,C.red,14]];
+const IC=({name:'Record Stack',note:'Two random records frame the screen top and bottom; the bottom one tips over on its way down, showing a spinning timeline of decades on its back. The other two become the O’s.',style:'Records as the O’s, a third of a record framing top and bottom',
+build(root,U,defs){const o={};const lay=[[376,C.teal,-34],[292,C.olive,30],[208,C.blue,-22],[124,C.red,14]],dates=pickDates();
   o.layer=mk('g',{},root);   // the records' own layer, under the words
   o.sl=lay.map(([y,c,dx])=>{const x=256+dx,g=mk('g',{},o.layer);
     const band=mk('path',{fill:'#1c1916',stroke:'#000','stroke-width':10,'stroke-linejoin':'round'},g);
     const f=mk('g',{},g);const r=recEl(f,150,c,{sw:10});
-    return{g,band,f,r,x,y}});
+    // its back side (only the bottom record turns over to it): white marks from the rim partway in, each with a decade
+    // beside it, sideways, spaced evenly round in order, so spinning brings them past one after another
+    const bw=mk('g',{transform:'scale(1 -1)',display:'none'},f),b=recEl(bw,150,c,{sw:10});
+    dates.forEach((yr,k)=>{const m=mk('g',{transform:`rotate(${k*DEC_STEP})`},b.sp);
+      mk('line',{x1:0,y1:-143,x2:0,y2:-114,stroke:'#fff','stroke-width':2.4,'stroke-linecap':'round'},m);
+      tx(m,String(yr),{transform:'translate(-5 -141) rotate(-90)','text-anchor':'end','font-family':SANS,'font-weight':700,'font-size':10.5,'letter-spacing':.6,fill:'#fff'})});
+    return{g,band,f,r,bw,b,x,y}});
   // a new shuffle every time it plays: the first two frame the screen (top, bottom), the other two become the O's
   const order=[0,1,2,3];for(let i=3;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]]}
   o.role={};o.role[order[0]]='top';o.role[order[1]]='bottom';o.role[order[2]]='o1';o.role[order[3]]='o2';
@@ -461,10 +483,13 @@ build(root,U,defs){const o={};const lay=[[376,C.teal,-34],[292,C.olive,30],[208,
   o.tag=tx(root,TAG,{x:256,y:Y+64,'text-anchor':'middle','font-family':SANS,'font-weight':700,'font-size':19,'letter-spacing':5,fill:C.muted,opacity:0});
   o.big=((U.r-U.l)/2)/150*1.04;   // a record as wide as the screen; a third of it shows
   return o},
-// one record: its face squashed to sy (40/150 lying flat, 1 face-on); the edge's thickness thins away as it turns to face us
-setRec(s,x,y,sc,sy,rot){const ry=150*sy,th=20*Math.max(0,1-(sy-40/150)/(1-40/150)*1.6);
+// one record: its face squashed to sy (40/150 lying flat, 1 face-on; below 0 it has tipped past edge-on and shows its back);
+// the edge's thickness thins away as it turns to face us
+setRec(s,x,y,sc,sy,rot,rotB=0){const a=Math.abs(sy),ry=150*a,th=20*Math.max(0,1-(a-40/150)/(1-40/150)*1.6);
   s.band.setAttribute('d',`M-150 0 A150 ${ry} 0 0 0 150 0 V${th} A150 ${ry} 0 0 1 -150 ${th} Z`);s.band.setAttribute('opacity',th>.5?1:0);
-  s.g.setAttribute('transform',`translate(${x} ${y}) scale(${sc})`);s.f.setAttribute('transform',`scale(1 ${sy})`);s.r.sp.setAttribute('transform',`rotate(${rot})`)},
+  s.g.setAttribute('transform',`translate(${x} ${y}) scale(${sc})`);s.f.setAttribute('transform',`scale(1 ${sy})`);s.r.sp.setAttribute('transform',`rotate(${rot})`);
+  // tipped past edge-on, the back shows instead of the front
+  const back=sy<0;s.r.g.setAttribute('display',back?'none':'inline');s.bw.setAttribute('display',back?'inline':'none');if(back)s.b.sp.setAttribute('transform',`rotate(${rotB})`)},
 frame(t,o,U){
   // first two swing out to frame the screen, a third of each showing; then the other two flip over to become the O's
   const flat=40/150,big=o.big;
@@ -479,15 +504,21 @@ frame(t,o,U){
     const st=ST[role],side=(role==='top'||role==='o2')?1:-1;
     // the pile settles: when a record under this one leaves, this one eases down into the gap
     let y0=s.y;for(let j=0;j<i;j++){const d=ST[o.role[j]]+.3;y0+=84*io(P(t,d,d+.5))}
-    let x=s.x,y=y0,sc=1,sy=flat,rot=0;
+    let x=s.x,y=y0,sc=1,sy=flat,rot=0,rotB=0;
     if(frame){
       // out to the side, then a long run straight up (or down) still lying flat; it only flips face-on and grows near the edge
       const top=role==='top',u=io(P(t,st,st+1.15)),R=150*big,ty=top?U.t-R*.25:U.b+R*.25;   // a third and a sliver: just enough to see the label's color
       x=bez(s.x,s.x+side*300,256+side*40,256,u);y=bez(y0,y0+(top?-40:40),ty+(top?160:-160),ty,u);
-      const f=ss(P(u,.5,.95));sc=lerp(1,big,ss(P(u,.35,1))*.85+f*.15);sy=lerp(flat,1,f);
+      const f=ss(P(u,.5,.95));sc=lerp(1,big,ss(P(u,.35,1))*.85+f*.15);
+      // the top one tips up to face us; the bottom one tips the other way, on over past edge-on, and lands showing its back
+      sy=top?lerp(flat,1,f):Math.cos(lerp(Math.acos(flat),Math.PI,ss(P(u,.3,.95))));   // a longer turn, so the tip-over reads
       // the record's own gleam (there from the icon's first frame) keeps spinning round, through the part that shows:
       // the top record turns one way, the bottom the other, so their gleams sweep by in opposite directions
-      rot=(top?-1:1)*spinFrom(t,st,160)}
+      rot=(top?-1:1)*spinFrom(t,st,50);
+      // seen from the back the same spin turns the other way, so the dates come in from the right in order and leave to
+      // the left. It's timed to the fade: the last date comes in from the right just as the fade starts, and the next one
+      // round (the earliest, starting over) would only reach the edge as the splash is fully gone
+      if(!top)rotB=-57-spinFrom(t,st,50)}
     else{
       // both swing out to the sides together, flipping face-on and growing, and sit partly off the screen like the top and
       // bottom ones (one above the middle, one below, opposite each other); then they sweep back in, shrinking into their O's
@@ -496,10 +527,10 @@ frame(t,o,U){
       const sxp=side>0?U.r+Rs*.24:U.l-Rs*.24,syp=cy+(role==='o1'?o.vy:-o.vy)*Math.min(150,(U.b-U.t)*.1);
       if(b<=0){x=bez(s.x,s.x+side*200,sxp-side*60,sxp,a);y=bez(y0,y0,syp,syp,a);sc=lerp(1,scS,ss(a));sy=lerp(flat,1,ss(P(a,.15,.85)));rot=side*200*a}
       else{x=bez(sxp,sxp-side*140,tg.cx+side*140,tg.cx,b);y=bez(syp,syp,tg.cy-90,tg.cy,b);sc=lerp(scS,tg.r/150,ss(b));sy=1;rot=side*(200+300*b)}
-      rot+=spinFrom(t,st+.5,90,.6)}
+      rot+=spinFrom(t,st+.5,50,.6)}
     if(Math.abs(x-s.x)>260&&!s.up){s.up=1;o.layer.appendChild(s.g)}
     if(t<st&&s.up)s.up=0;
-    this.setRec(s,x,y,sc,sy,rot);
+    this.setRec(s,x,y,sc,sy,rot,rotB);
   });
   o.L.forEach((l,i)=>{const q=P(t,2.3+i*.05,2.72+i*.05),s=lerp(1.7,1,out(q));l.e.setAttribute('opacity',q);l.e.setAttribute('transform',`translate(${l.cx} ${o.Y}) scale(${s}) translate(${-l.cx} ${-o.Y})`)});
   o.my.setAttribute('opacity',P(t,3.15,3.5));o.tag.setAttribute('opacity',P(t,3.4,3.8));
@@ -1078,7 +1109,7 @@ $('#add-card').onclick=()=>openEditor(null);
 let ED=null,ED0='';
 const edSnap=()=>JSON.stringify({...ED,typeTouched:0});
 const edDirty=()=>ED&&edSnap()!==ED0;
-function blankAlbum(){return{id:null,type:'Album',title:'',artist:'',year:'',genre:'',label:'',cover:'',tracks:[],mbid:'',added:0}}
+function blankAlbum(){return{id:null,type:'Album',title:'',artist:'',year:'',genre:'',label:'',cover:'',tracks:[],mbid:'',relId:'',added:0}}
 function openEditor(id){
   const a=id?S.albums.find(x=>x.id===id):null;
   ED=a?JSON.parse(JSON.stringify(a)):blankAlbum();ED.typeTouched=!!a;ED0=edSnap();
@@ -1194,14 +1225,19 @@ const mbType=t=>t==='EP'?'EP':t==='Single'?'Single':'Album';
 const caa=id=>`https://coverartarchive.org/release-group/${id}/front-250`;
 let LK=[],lkQ=null,lkOff=0;
 function setLkSt(m,err){const s=$('#lk-st');s.innerHTML=m;s.classList.toggle('err',!!err);s.hidden=!m}
+// words that name an edition rather than the album: searched without them, then that album's editions open
+const ED_HAS=/\b(deluxe|expanded|anniversary|remaster(ed)?|special edition|collector'?s|bonus tracks?|edition|reissue)\b/i;
+const ED_WORDS=/\b(super|deluxe|expanded|anniversary|remaster(?:ed)?|special|collector'?s|bonus|tracks?|edition|version|reissue|\d+(?:st|nd|rd|th))\b/gi;
 async function lookup(more){
   if(!more){
-    const al=$('#lk-album').value.trim(),ar=$('#lk-artist').value.trim();
-    if(!al&&!ar){setLkSt('Type an album name, an artist, or both.',true);return}
+    const al0=$('#lk-album').value.trim(),ar=$('#lk-artist').value.trim();
+    if(!al0&&!ar){setLkSt('Type an album name, an artist, or both.',true);return}
+    const edWant=ED_HAS.test(al0);
+    const al=edWant?(al0.replace(/[\(\)\[\]]/g,' ').replace(ED_WORDS,' ').replace(/[\s\-–:,]+$/,'').replace(/\s+/g,' ').trim()||al0):al0;
     // the exact phrase counts five times as much as the loose words, so exact titles and names come back first
     const parts=[];if(al)parts.push(`(releasegroup:"${luc(al)}"^5 OR releasegroup:(${luc(al)}))`);if(ar)parts.push(`(artist:"${luc(ar)}"^5 OR artist:(${luc(ar)}))`);
     const lt=S.ui.lkType||'All';if(lt!=='All')parts.push(`primarytype:${lt==='LP'?'album':lt.toLowerCase()}`);   // LPs search albums (MusicBrainz has no LP type) and add them as LPs
-    lkQ={q:parts.join(' AND '),browse:!al,al,ar};lkOff=0;LK=[];SEL.clear();updBar();$('#lk-res').innerHTML='';
+    lkQ={q:parts.join(' AND '),browse:!al,al,ar,edWant};lkOff=0;LK=[];SEL.clear();EDSEL.clear();EDOPEN=null;EDGEN++;updBar();$('#lk-res').innerHTML='';
   }
   setLkSt('<span class="spin"></span>&nbsp; Searching MusicBrainz…');$('#lk-go').disabled=true;
   try{
@@ -1209,6 +1245,7 @@ async function lookup(more){
     let got=j['release-groups']||[];
     LK=rankLk(LK.concat(got.filter(g=>!LK.some(x=>x.id===g.id))));lkOff+=got.length;lkQ.count=j.count||0;
     renderLk();setLkSt(LK.length?'':`Nothing found. Try fewer words, check the spelling${(S.ui.lkType||'All')!=='All'?`, or show All instead of ${TYPE_PL[S.ui.lkType]} only`:''}.`,!LK.length);
+    if(!more&&lkQ.edWant&&LK[0]&&trNorm(LK[0].title)===trNorm(lkQ.al))toggleEds(LK[0]);   // asked for a deluxe etc.: show the top match's editions
   }catch(e){setLkSt(navigator.onLine?`Couldn’t reach MusicBrainz (${esc(e.message)}). Try again in a moment.`:'You’re offline. Looking up needs a connection — you can still type it in yourself.',true)}
   finally{$('#lk-go').disabled=false}
 }
@@ -1232,15 +1269,62 @@ function rankLk(list){
   const date=g=>g['first-release-date']||'9999';
   return list.map((g,i)=>({g,i,t:tier(g)})).sort((x,y)=>x.t-y.t||(x.t<5?date(x.g).localeCompare(date(y.g)):0)||x.i-y.i).map(x=>x.g);
 }
+// what you have: the album as first released (no edition picked), or a particular edition
+const ownG=g=>S.albums.some(a=>a.mbid===g.id&&!a.relId);
+const ownE=(g,E)=>E.def?ownG(g):S.albums.some(a=>a.mbid===g.id&&a.relId&&E.ids.includes(a.relId));
+const hasEd=g=>S.albums.some(a=>a.mbid===g.id&&a.relId);
+const CK_OWN=`<span class="lk-ck own"><b>Have it</b></span>`,CK_BOX=`<span class="lk-ck"><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i></span>`;
 function renderLk(){
   const rows=LK.map((g,i)=>{
     const y=(g['first-release-date']||'').slice(0,4),sec=(g['secondary-types']||[]).join(', '),ar=creditOf(g['artist-credit']);
-    const own=S.albums.some(a=>a.mbid===g.id),multi=!ED.id;
-    const ck=multi?(own?`<span class="lk-ck own"><b>Have it</b></span>`:`<span class="lk-ck"><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i></span>`):'';
-    return `<button type="button" class="lk-row ${SEL.has(g.id)?'sel':''}" data-i="${i}"><div class="art ph" style="--c:${clothOf(g.title+'|'+ar)}"><span>${esc(initials(g.title))}</span>${DISC_SVG}<img alt="" loading="lazy" src="${caa(g.id)}" onerror="this.remove()"></div><span class="tx"><b>${esc(g.title)}</b><small>${esc([ar,y,sec].filter(Boolean).join(' · '))}</small></span><span class="tg">${esc(g['primary-type']||'Other')}</span>${ck}</button>`;
+    const own=ownG(g),multi=!ED.id,ck=multi?(own?CK_OWN:CK_BOX):'',open=EDOPEN===g.id;
+    return `<button type="button" class="lk-row ${SEL.has(g.id)?'sel':''}" data-i="${i}" data-k="${esc(g.id)}"><div class="art ph" style="--c:${clothOf(g.title+'|'+ar)}"><span>${esc(initials(g.title))}</span>${DISC_SVG}<img alt="" loading="lazy" src="${caa(g.id)}" onerror="this.remove()"></div><span class="tx"><b>${esc(g.title)}</b><small>${esc([ar,y,sec,!own&&hasEd(g)?'Have an edition':''].filter(Boolean).join(' · '))}</small></span><span class="tg">${esc(g['primary-type']||'Other')}</span><span class="lk-edb${open?' on':''}" aria-label="Editions"><b>Editions</b></span>${ck}</button>${open?`<div class="lk-eds">${edsHTML(g,i)}</div>`:''}`;
   }).join('');
-  const can=!ED.id&&LK.some(g=>!S.albums.some(a=>a.mbid===g.id));
-  $('#lk-res').innerHTML=LK.length?`<div class="sr-sec">Results · ${lkQ.count>LK.length?`${LK.length} of ${lkQ.count}`:LK.length}<span>${can?`<button type="button" id="lk-all">${LK.every(g=>SEL.has(g.id)||S.albums.some(a=>a.mbid===g.id))?'Select none':'Select all'}</button>`:''}</span></div>${rows}${lkQ.count>LK.length?'<button type="button" class="lk-more" id="lk-more">Show more</button>':''}`:'';
+  const can=!ED.id&&LK.some(g=>!ownG(g));
+  $('#lk-res').innerHTML=LK.length?`<div class="sr-sec">Results · ${lkQ.count>LK.length?`${LK.length} of ${lkQ.count}`:LK.length}<span>${can?`<button type="button" id="lk-all">${LK.every(g=>SEL.has(g.id)||ownG(g))?'Select none':'Select all'}</button>`:''}</span></div>${rows}${lkQ.count>LK.length?'<button type="button" class="lk-more" id="lk-more">Show more</button>':''}`:'';
+}
+
+/* ================= editions: the versions of one album (original, deluxe, expanded, remasters…) ================= */
+// MusicBrainz keeps them inside the album, so they're listed per result. Copies that differ only by country or
+// format (CD, vinyl, digital) are shown once; an edition's runtime fills in after the list appears.
+const EDC={},EDERR={},EDSEL=new Map();let EDOPEN=null,EDGEN=0;
+const relRank=(a,b)=>(a.status==='Official'?0:1)-(b.status==='Official'?0:1)||String(a.date||'9999').localeCompare(String(b.date||'9999'));
+const realRels=all=>{const good=all.filter(r=>r.status!=='Pseudo-Release'&&r.status!=='Bootleg');return (good.length?good:all).slice().sort(relRank)};
+const cap1=s=>s.replace(/\b\p{L}/gu,c=>c.toUpperCase());
+function edName(rgT,r){const t=r.title||rgT,d=(r.disambiguation||'').trim();return !d||nameNorm(t).includes(nameNorm(d))?t:`${t} (${cap1(d)})`}
+const relLen=r=>(r.media||[]).reduce((t,m)=>t+(m.tracks||[]).reduce((u,x)=>u+Math.round((x.length||x.recording?.length||0)/1000),0),0);
+async function loadEditions(g){
+  let rels=[],off=0,count=1;
+  while(off<count&&off<300){const j=await mb(`release?release-group=${g.id}&inc=media&limit=100&offset=${off}`);const r=j.releases||[];rels=rels.concat(r);count=j['release-count']||0;off+=r.length;if(!r.length)break}
+  const map=new Map(),out=[];
+  realRels(rels).forEach(r=>{
+    const n=(r.media||[]).reduce((t,m)=>t+(m['track-count']||0),0),name=edName(g.title,r),k=nameNorm(name)+'|'+n;
+    let E=map.get(k);if(!E){E={rel:r,ids:[],name,n,discs:(r.media||[]).length,year:(r.date||'').slice(0,4),fmt:new Set(),len:null,full:null};map.set(k,E);out.push(E)}
+    E.ids.push(r.id);(r.media||[]).forEach(m=>m.format&&E.fmt.add(m.format));
+  });
+  out.forEach((E,i)=>{E.def=i===0;E.fmt=[...E.fmt]});
+  return EDC[g.id]=out;
+}
+function edsHTML(g,i){
+  if(EDERR[g.id])return `<div class="lk-edst">Couldn’t load the editions (${esc(EDERR[g.id])}). Tap Editions again to retry.</div>`;
+  const list=EDC[g.id];if(!list)return '<div class="lk-edst"><span class="spin"></span>&nbsp; Loading editions…</div>';
+  if(!list.length)return '<div class="lk-edst">No editions listed for this one.</div>';
+  const multi=!ED.id,ar=creditOf(g['artist-credit']);
+  return list.map((E,j)=>{const k='r:'+E.rel.id,own=ownE(g,E);
+    const meta=[E.year,E.discs>1?E.discs+' discs':'',E.n?E.n+' track'+(E.n===1?'':'s'):'',E.len?fmtLen(E.len):'',E.fmt.slice(0,2).join(' + ')].filter(Boolean).join(' · ');
+    return `<button type="button" class="lk-row ${SEL.has(k)?'sel':''}" data-i="${i}" data-e="${j}" data-k="${esc(k)}"><div class="art ph" style="--c:${clothOf(g.title+'|'+ar)}"><span>${esc(initials(g.title))}</span>${DISC_SVG}<img alt="" loading="lazy" src="https://coverartarchive.org/release/${E.rel.id}/front-250" onerror="this.remove()"></div><span class="tx"><b>${esc(E.name)}</b><small>${esc(meta)}</small></span><span class="tg${E.def?' og':''}">${E.def?'Original':'Edition'}</span>${multi?(own?CK_OWN:CK_BOX):''}</button>`}).join('');
+}
+function paintEds(g){const p=$('#lk-res .lk-eds');if(p&&EDOPEN===g.id)p.innerHTML=edsHTML(g,LK.indexOf(g))}
+async function toggleEds(g){
+  if(EDOPEN===g.id){EDOPEN=null;EDGEN++;renderLk();return}
+  EDOPEN=g.id;const gen=++EDGEN;delete EDERR[g.id];renderLk();
+  if(!EDC[g.id]){try{await loadEditions(g)}catch(e){EDERR[g.id]=e.message}if(gen!==EDGEN)return;paintEds(g);if(EDERR[g.id])return}
+  // runtimes, one edition at a time; stops as soon as the list closes or something else is picked
+  for(const E of EDC[g.id].slice(0,15)){
+    if(E.len!=null)continue;if(gen!==EDGEN)return;
+    try{E.full=await mb(`release/${E.rel.id}?inc=recordings+labels+genres`);E.len=relLen(E.full)}catch(_){E.len=0}
+    if(gen===EDGEN)paintEds(g);
+  }
 }
 $('#lk-go').onclick=()=>lookup(false);
 function setLkType(t){S.ui.lkType=t;save();$$('#lk-type button').forEach(b=>b.classList.toggle('on',b.dataset.t===t))}
@@ -1248,60 +1332,65 @@ $('#lk-type').addEventListener('click',e=>{const b=e.target.closest('button');if
 ['#lk-album','#lk-artist'].forEach(s=>$(s).addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();lookup(false)}}));
 $('#lk-res').addEventListener('click',async e=>{
   if(e.target.closest('#lk-more')){lookup(true);return}
-  if(e.target.closest('#lk-all')){const free=LK.filter(g=>!S.albums.some(a=>a.mbid===g.id));const all=free.every(g=>SEL.has(g.id));
+  if(e.target.closest('#lk-all')){const free=LK.filter(g=>!ownG(g));const all=free.every(g=>SEL.has(g.id));
     free.forEach(g=>all?SEL.delete(g.id):SEL.add(g.id));renderLk();updBar();return}
   const r=e.target.closest('.lk-row');if(!r||r.classList.contains('busy')||BULK)return;
+  const g=LK[+r.dataset.i],E=r.dataset.e!=null?(EDC[g.id]||[])[+r.dataset.e]:null,key=E?'r:'+E.rel.id:g.id;
+  if(!E&&e.target.closest('.lk-edb')){toggleEds(g);return}
   const ck=e.target.closest('.lk-ck');
-  if(ck){if(ck.classList.contains('own'))return;const id=LK[+r.dataset.i].id;if(SEL.has(id))SEL.delete(id);else SEL.add(id);r.classList.toggle('sel',SEL.has(id));updBar();
-    const b=$('#lk-all');if(b)b.textContent=LK.every(g=>SEL.has(g.id)||S.albums.some(a=>a.mbid===g.id))?'Select none':'Select all';return}
-  const g=LK[+r.dataset.i];r.classList.add('busy');const tg=r.querySelector('.tg'),was=tg.innerHTML;tg.innerHTML='<span class="spin"></span>';
-  try{await pickRG(g);$('#lk-res').innerHTML='';SEL.clear();updBar();setLkSt(`Filled in from MusicBrainz. Check it over, then tap <b>${ED.id?'Save':'Add'}</b>.`);
+  if(ck){if(ck.classList.contains('own'))return;if(SEL.has(key))SEL.delete(key);else{SEL.add(key);if(E)EDSEL.set(key,{g,E})}r.classList.toggle('sel',SEL.has(key));updBar();
+    const b=$('#lk-all');if(b)b.textContent=LK.every(x=>SEL.has(x.id)||ownG(x))?'Select none':'Select all';return}
+  r.classList.add('busy');const tg=r.querySelector('.tg'),was=tg.innerHTML;tg.innerHTML='<span class="spin"></span>';EDGEN++;   // EDGEN++ stops any runtime lookups so this one isn't kept waiting
+  try{await pickRG(g,E);EDOPEN=null;$('#lk-res').innerHTML='';SEL.clear();updBar();setLkSt(`Filled in from MusicBrainz. Check it over, then tap <b>${ED.id?'Save':'Add'}</b>.`);
     $('#ed-page').scrollTo({top:0,behavior:'smooth'})}
   catch(err){tg.innerHTML=was;r.classList.remove('busy');setLkSt(`Couldn’t load that one (${esc(err.message)}). Try again.`,true)}
 });
-// a release group is the album in general; its releases are the editions. The tracklist comes from the
-// earliest official edition (the original), genres from the album and the edition
-async function fetchAlbum(g){
+// a release group is the album in general; its releases are the editions. With no edition picked, the tracklist
+// comes from the earliest official one (the original). Genres come from the album and the edition. The year
+// stays the album's first release, so an edition sits beside the original in the timeline.
+async function fetchAlbum(g,E){
   const rg=await mb(`release-group/${g.id}?inc=genres+tags+releases+artist-credits`);
-  const rels=(rg.releases||[]).slice().sort((a,b)=>(a.status==='Official'?0:1)-(b.status==='Official'?0:1)||String(a.date||'9999').localeCompare(String(b.date||'9999')));
+  const asEd=!!(E&&!E.def),pick=asEd?E.rel:realRels(rg.releases||[])[0];
   let rel=null;
-  if(rels[0])rel=await mb(`release/${rels[0].id}?inc=recordings+labels+genres`);
+  if(pick)rel=E&&E.full&&E.full.id===pick.id?E.full:await mb(`release/${pick.id}?inc=recordings+labels+genres`);
   const tracks=[];
   (rel?.media||[]).forEach((m,mi)=>(m.tracks||[]).forEach(t=>tracks.push({t:t.title||t.recording?.title||'',len:Math.round((t.length||t.recording?.length||0)/1000),d:m.position||mi+1})));
   const gen=[...(rg.genres||[]),...(rel?.genres||[])].sort((a,b)=>(b.count||0)-(a.count||0));
   const tags=(rg.tags||[]).sort((a,b)=>(b.count||0)-(a.count||0));
-  const cap=x=>x.replace(/\b\p{L}/gu,c=>c.toUpperCase());
-  const genre=normGenres((gen.length?gen:tags).filter(x=>(x.count||0)>0||gen.length).slice(0,3).map(x=>cap(x.name)).join(', '));   // up to three, most-voted first
+  const genre=normGenres((gen.length?gen:tags).filter(x=>(x.count||0)>0||gen.length).slice(0,3).map(x=>cap1(x.name)).join(', '));   // up to three, most-voted first
   const label=(rel?.['label-info']||[]).map(x=>x.label?.name).filter(Boolean)[0]||'';
-  const out={title:rg.title||g.title,artist:creditOf(rg['artist-credit']||g['artist-credit']),year:(rg['first-release-date']||g['first-release-date']||'').slice(0,4),
-    genre,label,tracks,mbid:g.id,arMbid:((rg['artist-credit']||g['artist-credit']||[])[0]||{}).artist?.id||'',type:mbType(rg['primary-type']||g['primary-type'])};
-  // the cover: kept in the app as a small picture so it shows offline; if that isn't allowed, linked instead
+  const out={title:asEd?E.name:(rg.title||g.title),artist:creditOf(rg['artist-credit']||g['artist-credit']),year:(rg['first-release-date']||g['first-release-date']||'').slice(0,4),
+    genre,label,tracks,mbid:g.id,relId:asEd?pick.id:'',arMbid:((rg['artist-credit']||g['artist-credit']||[])[0]||{}).artist?.id||'',type:mbType(rg['primary-type']||g['primary-type'])};
+  // the cover: kept in the app as a small picture so it shows offline; if that isn't allowed, linked instead.
+  // An edition tries its own cover first.
+  const tries=[...(asEd?[`https://coverartarchive.org/release/${pick.id}/front-500`]:[]),`https://coverartarchive.org/release-group/${g.id}/front-500`,...(!asEd&&rel?[`https://coverartarchive.org/release/${rel.id}/front-500`]:[])];
   let cover='';
-  try{cover=await shrink(`https://coverartarchive.org/release-group/${g.id}/front-500`,500)}
-  catch(_){try{if(rel)cover=await shrink(`https://coverartarchive.org/release/${rel.id}/front-500`,500)}catch(__){}}
+  for(const u of tries){try{cover=await shrink(u,500);break}catch(_){}}
+  if(!cover&&asEd&&await imgOk(`https://coverartarchive.org/release/${pick.id}/front-250`))cover=`https://coverartarchive.org/release/${pick.id}/front-250`;
   if(!cover&&await imgOk(caa(g.id)))cover=caa(g.id);
   out.cover=cover;return out;
 }
-async function pickRG(g){
-  const x=await fetchAlbum(g),keepLP=(ED.typeTouched&&ED.type==='LP')||S.ui.lkType==='LP';
+async function pickRG(g,E){
+  const x=await fetchAlbum(g,E),keepLP=(ED.typeTouched&&ED.type==='LP')||S.ui.lkType==='LP';
   Object.assign(ED,x,{artist:x.artist||ED.artist,type:keepLP?'LP':x.type,coverSrc:x.cover?'Cover Art Archive':'',noCover:false});   // LP chosen (or LPs filtered): it stays an LP
   $('#fc-title').dataset.tried='';$('#fc-artist').dataset.tried='';fillForm();
 }
-// several at once: each checked result is looked up in full and added, one after another
+// several at once: each checked result (or edition) is looked up in full and added, one after another
 const SEL=new Set();let BULK=false;
 function updBar(){const n=SEL.size;$('#lk-bar').hidden=!n&&!BULK;if(!BULK)$('#lk-addsel').textContent=`Add ${n} Selected`;$('#lk-addsel').disabled=BULK;$('#lk-clear').disabled=BULK}
 $('#lk-clear').onclick=()=>{SEL.clear();renderLk();updBar()};
 $('#lk-addsel').onclick=async()=>{
-  const picks=LK.filter(g=>SEL.has(g.id));if(!picks.length||BULK)return;
-  BULK=true;updBar();let ok=0,fail=0;const lp=S.ui.lkType==='LP';
-  for(const [n,g] of picks.entries()){
+  const picks=[...LK.filter(g=>SEL.has(g.id)).map(g=>({k:g.id,g,E:null})),...[...EDSEL].filter(([k])=>SEL.has(k)).map(([k,v])=>({k,g:v.g,E:v.E}))];
+  if(!picks.length||BULK)return;
+  BULK=true;EDGEN++;updBar();let ok=0,fail=0;const lp=S.ui.lkType==='LP';
+  for(const [n,p] of picks.entries()){
     $('#lk-addsel').innerHTML=`<span class="spin"></span>&nbsp; Adding ${n+1} of ${picks.length}…`;
-    const row=$(`#lk-res .lk-row[data-i="${LK.indexOf(g)}"]`);
+    const row=$(`#lk-res .lk-row[data-k="${CSS.escape(p.k)}"]`);
     try{
-      if(S.albums.some(a=>a.mbid===g.id)){SEL.delete(g.id);continue}
-      const x=await fetchAlbum(g);
+      if(p.E?ownE(p.g,p.E):ownG(p.g)){SEL.delete(p.k);continue}
+      const x=await fetchAlbum(p.g,p.E);
       S.albums.push({id:uid(),added:Date.now(),...x,artist:x.artist||'Unknown Artist',type:lp?'LP':x.type,genre:normGenres(x.genre)});
-      SEL.delete(g.id);ok++;save();autoPhoto(x.artist||'Unknown Artist');checkPreviews(S.albums[S.albums.length-1].id);autoCover(S.albums[S.albums.length-1].id);
+      SEL.delete(p.k);ok++;save();autoPhoto(x.artist||'Unknown Artist');checkPreviews(S.albums[S.albums.length-1].id);autoCover(S.albums[S.albums.length-1].id);
       if(row){row.classList.remove('sel');row.classList.add('ok')}
     }catch(e){fail++;if(row)row.classList.add('fail')}
   }
@@ -1472,10 +1561,12 @@ const coverMatch=(a,title,artist)=>trNorm(title)===trNorm(a.title)&&(!artist||na
 async function caaCovers(a){
   if(!a.mbid)return[];
   const out=[];
+  // an edition's own cover comes first
+  if(a.relId&&await imgOk(`https://coverartarchive.org/release/${a.relId}/front-250`))out.push({url:`https://coverartarchive.org/release/${a.relId}/front-500`,thumb:`https://coverartarchive.org/release/${a.relId}/front-250`,title:a.title,note:'Cover Art Archive · this edition',src:'Cover Art Archive'});
   // the album's own front cover, then other editions' (reissues, other countries) when the main one has none
   if(await imgOk(`https://coverartarchive.org/release-group/${a.mbid}/front-250`))out.push({url:`https://coverartarchive.org/release-group/${a.mbid}/front-500`,thumb:`https://coverartarchive.org/release-group/${a.mbid}/front-250`,title:a.title,note:'Cover Art Archive',src:'Cover Art Archive'});
   try{const rg=await mb(`release-group/${a.mbid}?inc=releases`);
-    const rels=(rg.releases||[]).slice(0,10);
+    const rels=(rg.releases||[]).filter(r=>r.id!==a.relId).slice(0,10);
     const got=await Promise.allSettled(rels.map(r=>fetch(`https://coverartarchive.org/release/${r.id}/`).then(x=>x.ok?x.json():null)));
     got.forEach((g,i)=>{const im=g.status==='fulfilled'&&g.value&&(g.value.images||[]).find(x=>x.front);if(!im)return;const r=rels[i];
       out.push({url:im.thumbnails?.['500']||im.thumbnails?.large||im.image,thumb:im.thumbnails?.['250']||im.thumbnails?.small||im.image,title:r.title||a.title,
@@ -1665,7 +1756,7 @@ function parseImport(txt){
 function mergeImport(d){
   let added=0;
   for(const a of d.albums){
-    const cur=S.albums.find(x=>x.id===a.id||(a.mbid&&x.mbid===a.mbid));
+    const cur=S.albums.find(x=>x.id===a.id||(a.mbid&&x.mbid===a.mbid&&(x.relId||'')===(a.relId||'')));   // editions of one album are separate
     if(!cur){S.albums.push(a);added++;continue}
     if(!cur.cover&&a.cover&&!cur.noCover){cur.cover=a.cover;cur.coverSrc=a.coverSrc}
   }
