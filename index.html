@@ -332,6 +332,12 @@
   .ctile .art{position:absolute; inset:0; width:100%; height:100%;}
   .ctile .art.ph span{font-size:min(9vw,64px);}
   .ctile:active{filter:brightness(.94);}
+  /* Artists in Covers: the name along the bottom of the photo, up to two lines */
+  .ctile .nm{position:absolute; left:0; right:0; bottom:0; z-index:1; display:flex; align-items:flex-end; justify-content:center; min-height:52%;
+    padding:0 7px 7px; background:linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.55) 45%, rgba(0,0,0,.78));
+    color:#fff; text-align:center; font:700 min(.8rem,3.4vw)/1.12 Georgia,serif; text-shadow:0 1px 2px rgba(0,0,0,.5); pointer-events:none;}
+  .ctile .nm span{width:100%; text-align:center; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere;}
+  .ctile .art.ph:has(+ .nm) span{margin-bottom:26%;} .ctile .art.ph:has(+ .nm) svg{display:none;}   /* no photo: the initials sit higher, the name has room */
   #row2d{display:flex;} #row2d[hidden]{display:none;} #row2d .seg{flex:1; height:42px;}
   body.dt-fit #app{height:calc(100dvh - var(--header-h,90px) - var(--footer-h,60px) - 8px);}
   .dt-card{display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; flex:none;
@@ -847,7 +853,7 @@ function renderArtists(){
     h+=`<div class="ac ${isOpen?'open':''}" data-k="${esc(k)}" data-artist="${esc(x.name)}"><div class="ac-head">${artistArt(x.name)}<div class="main"><div class="t">${esc(x.name)}</div><div class="m">${esc(typeCounts(x.albums))}${len?' · '+fmtLong(len):''}</div></div></div>
       <div class="ac-drop"><div class="ac-in"><div class="ac-list">${rows}<button type="button" class="ac-page">Artist Page</button></div></div></div></div>`;
   }
-  if(vw()==='covers'&&list.length)h=`<div class="cgrid">${list.map(x=>`<div class="ctile" data-artist="${esc(x.name)}" aria-label="${esc(x.name)}">${artistArt(x.name)}</div>`).join('')}</div>`;
+  if(vw()==='covers'&&list.length)h=`<div class="cgrid">${list.map(x=>`<div class="ctile" data-artist="${esc(x.name)}" aria-label="${esc(x.name)}">${artistArt(x.name)}<div class="nm"><span>${esc(x.name)}</span></div></div>`).join('')}</div>`;
   if(!S.albums.length)h=`<div class="empty">Your collection is empty.<br>Tap <b>Add New Album</b> to look one up.</div>`;
   else if(!list.length)h=`<div class="empty">Nothing matches${q?` “${esc(Q.trim())}”`:''}${u.filter!=='All'?` in ${TYPE_PL[u.filter]}`:''}.</div>`;
   $('#app').innerHTML=h;
