@@ -208,7 +208,10 @@
   .sleeve{position:absolute; inset:0; border:3px solid #000; border-radius:4px; overflow:hidden; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.25);}
   .sleeve .art{position:absolute; inset:0; width:100%; height:100%;}
   /* the 3D sleeve (drawn with Three.js); the flat one above stays as the fallback */
-  .pv canvas.s3d{position:absolute; inset:0; width:100%; height:100%; display:none; touch-action:none; cursor:grab;}
+  /* the drawing reaches past the box above and below, so a spun or tilted sleeve is never cut off; it only draws there
+     (taps there still reach what's underneath) */
+  .pv.three{height:240px; z-index:2; touch-action:none; cursor:grab;}
+  .pv canvas.s3d{position:absolute; left:0; right:0; top:-36px; width:100%; height:calc(100% + 72px); display:none; pointer-events:none;}
   .pv.three canvas.s3d{display:block;} .pv.three .sleeve-wrap{display:none;}
   .sleeve .hint{position:absolute; left:0; right:0; bottom:0; padding:3px 0; background:rgba(0,0,0,.55); color:#fff; text-align:center;
     font:700 .52rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase;}
@@ -222,6 +225,17 @@
   .fc.bad label{color:var(--red);}
   .row2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:4px;}
   .row-art{display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:4px;}
+  /* one wide card split into sections: title | artist | the artist list */
+  .fcard{display:flex; gap:3px; height:48px; border:3px solid #000; border-radius:8px; overflow:hidden; background:#000;}
+  .fcard .fc{flex:1; min-width:0; border:0; border-radius:0; height:auto;}
+  .fc-btn{flex:0 0 21%; margin:0; padding:0 4px; border:0; border-radius:0; background:var(--hdr-cell); color:var(--ink);
+    font:700 min(.64rem,2.6vw)/1.15 Arial,sans-serif; letter-spacing:.4px; text-transform:uppercase;}
+  /* the tracks: one card, the list in its dropdown */
+  .trk-card .ac-head .main{padding:0 10px;}
+  .trk-card .ac-head .t{font:700 .9rem Georgia,serif;}
+  .trk-card .ac-head .m{font:.62rem Arial,sans-serif; color:var(--muted);}
+  .trk-card .ac-head .cnt polygon{fill:currentColor; stroke:currentColor;}
+  .seg.slim{height:28px;} .seg.slim button{font-size:min(.64rem,2.7vw);}
   .card-btn{height:48px; margin:0; padding:0 6px; border:3px solid #000; border-radius:8px; background:var(--panel); color:var(--ink);
     font:700 min(.76rem,3vw) Arial,sans-serif; letter-spacing:.4px; text-transform:uppercase;}
   .card-btn.ink{background:var(--ink); color:#fff;}
@@ -605,7 +619,7 @@ start();
 <div class="page" id="ed-page" aria-hidden="true">
   <div class="pg-head"><button type="button" id="ed-cancel">Cancel</button><h2 id="ed-title">Add an Album</h2><button type="button" class="go" id="ed-save" disabled>Add</button></div>
   <div class="pg-body">
-    <div class="seg" id="ed-type"><button type="button" data-t="Album" class="on">Album</button><button type="button" data-t="LP">LP</button><button type="button" data-t="EP">EP</button><button type="button" data-t="Single">Single</button></div>
+    <div class="seg slim" id="ed-type"><button type="button" data-t="Album" class="on">Album</button><button type="button" data-t="LP">LP</button><button type="button" data-t="EP">EP</button><button type="button" data-t="Single">Single</button></div>
     <div class="pv" id="ed-pv"><div class="sleeve-wrap" id="ed-sw"><div class="disc"><i class="lbl"></i></div><div class="sleeve" id="ed-sleeve"></div></div><canvas class="s3d" id="ed-3d" aria-label="The album's sleeve and record. Swipe to turn it, tap to slide the record."></canvas></div>
     <div class="list-divider sm"><span>Look Up</span></div>
     <div class="lk">
@@ -617,16 +631,15 @@ start();
     <div class="lk-st" id="lk-st">Search MusicBrainz to fill everything in, or type it yourself below.</div>
     <div class="sr-list" id="lk-res"></div>
     <div class="list-divider sm"><span>Details</span></div>
-    <div class="fc" id="fc-title"><label for="ed-t">Title</label><input id="ed-t" autocomplete="off"></div>
-    <div class="row-art">
+    <div class="fcard">
+      <div class="fc" id="fc-title"><label for="ed-t">Title</label><input id="ed-t" autocomplete="off"></div>
       <div class="fc" id="fc-artist"><label for="ed-a">Artist</label><input id="ed-a" autocomplete="off"></div>
-      <button type="button" class="card-btn" id="ed-alist">Artist List</button>
+      <button type="button" class="fc-btn" id="ed-alist">Artist List</button>
     </div>
     <div class="row2">
       <div class="fc"><label for="ed-y">Year</label><input id="ed-y" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Optional"></div>
       <div class="fc"><label for="ed-g">Genres</label><input id="ed-g" autocomplete="off" placeholder="Folk, Indie Folk"></div>
     </div>
-    <div class="fc"><label for="ed-l">Label</label><input id="ed-l" autocomplete="off" placeholder="Optional"></div>
     <div class="ph-btns">
       <button type="button" class="card-btn" id="ed-find">Find Cover</button>
       <button type="button" class="card-btn" id="ed-photo">Choose Cover</button>
@@ -634,9 +647,9 @@ start();
     </div>
     <div class="lk-st" id="cv-st" hidden></div><div class="sr-list" id="cv-res"></div>
     <input type="file" id="ed-file" accept="image/*" hidden>
-    <div class="list-divider sm"><span id="ed-trk-h">Tracks</span></div>
-    <div id="ed-tracks" style="display:flex; flex-direction:column; gap:4px"></div>
-    <button type="button" class="dash-btn" id="ed-addtrk">+ Add Track</button>
+    <div class="ac trk-card" id="ed-trk-card"><div class="ac-head" id="ed-trk-tog"><div class="main"><div class="t">Tracks</div><div class="m" id="ed-trk-h">No tracks yet</div></div>
+      <div class="cnt"><span id="ed-trk-n">0</span><svg viewBox="0 0 40 40"><polygon points="10.4,11 29.6,11 20,27.6" stroke-width="5" stroke-linejoin="round"/></svg></div></div>
+      <div class="ac-drop"><div class="ac-list"><div id="ed-tracks" style="display:flex; flex-direction:column; gap:4px"></div><button type="button" class="dash-btn" id="ed-addtrk">+ Add Track</button></div></div></div>
     <button type="button" class="del-btn" id="ed-del" hidden>Delete Album</button>
   </div>
   <div id="lk-bar" hidden><button type="button" id="lk-clear">Clear</button><button type="button" id="lk-addsel">Add Selected</button></div>
@@ -1121,11 +1134,12 @@ function openEditor(id){
   $('#lk-album').value='';$('#lk-artist').value='';$('#lk-res').innerHTML='';LK=[];lkQ=null;SEL.clear();BULK=false;updBar();setLkType(S.ui.lkType||'All');
   setLkSt('Search MusicBrainz to fill everything in, or type it yourself below.');
   $('#cv-res').innerHTML='';$('#cv-st').hidden=true;CV=[];
+  $('#ed-trk-card').classList.remove('open');   // always starts closed
   fillForm();$('#ed-pv').classList.remove('in');openPage('#ed-page');S3D.open();
   requestAnimationFrame(()=>requestAnimationFrame(()=>$('#ed-pv').classList.add('in')));
 }
 function fillForm(){
-  $('#ed-t').value=ED.title;$('#ed-a').value=ED.artist;$('#ed-y').value=ED.year||'';$('#ed-g').value=ED.genre||'';$('#ed-l').value=ED.label||'';
+  $('#ed-t').value=ED.title;$('#ed-a').value=ED.artist;$('#ed-y').value=ED.year||'';$('#ed-g').value=ED.genre||'';
   $$('#ed-type button').forEach(b=>b.classList.toggle('on',b.dataset.t===ED.type));
   renderSleeve();renderTracks();validate();
 }
@@ -1145,7 +1159,9 @@ function renderTracks(){
     h+=`<div class="trk" data-i="${i}"><span class="n" style="--c:${c}">${n}</span><input class="tt" value="${esc(x.t)}" placeholder="Track title" autocomplete="off"><input class="tl" value="${esc(fmtLen(x.len))}" placeholder="0:00" inputmode="numeric" autocomplete="off"><button type="button" class="x" aria-label="Remove track">×</button></div>`});
   $('#ed-tracks').innerHTML=h;trkHead();S3D.soft();
 }
-function trkHead(){const n=ED.tracks.length,l=total(ED);$('#ed-trk-h').textContent=n?`Tracks · ${n}${l?' · '+fmtLen(l):''}`:'Tracks'}
+function trkHead(){const n=ED.tracks.length,l=total(ED);$('#ed-trk-n').textContent=n;
+  $('#ed-trk-h').textContent=n?`${n} track${n===1?'':'s'}${l?' · '+fmtLen(l):''}`:'No tracks yet — open to add them'}
+$('#ed-trk-tog').onclick=()=>$('#ed-trk-card').classList.toggle('open');   // opens and closes instantly
 function validate(){
   const ok=!!(ED.title.trim()&&ED.artist.trim());$('#ed-save').disabled=!ok;
   $('#fc-title').classList.toggle('bad',!ED.title.trim()&&$('#fc-title').dataset.tried==='1');
@@ -1155,7 +1171,7 @@ $('#ed-type').addEventListener('click',e=>{const b=e.target.closest('button');if
   $$('#ed-type button').forEach(x=>x.classList.toggle('on',x===b));renderSleeve()});
 const bind=(sel,k,after)=>$(sel).addEventListener('input',e=>{ED[k]=e.target.value;after&&after();validate()});
 bind('#ed-t','title',()=>{renderSleeveSoft()});bind('#ed-a','artist',()=>{renderSleeveSoft()});
-bind('#ed-y','year',()=>S3D.soft());bind('#ed-g','genre');bind('#ed-l','label',()=>S3D.soft());
+bind('#ed-y','year',()=>S3D.soft());bind('#ed-g','genre');
 $('#ed-y').addEventListener('input',e=>{const v=e.target.value.replace(/\D/g,'').slice(0,4);if(v!==e.target.value){e.target.value=v;ED.year=v}});
 let svT;function renderSleeveSoft(){clearTimeout(svT);svT=setTimeout(()=>{renderSleeve();renderTracksColor()},250)}
 function renderTracksColor(){const c=clothOf((ED.title||'')+'|'+(ED.artist||''));$$('#ed-tracks .n').forEach(n=>n.style.setProperty('--c',c))}
@@ -1200,8 +1216,8 @@ let delT;$('#ed-del').onclick=()=>{const b=$('#ed-del');
 const S3D=(()=>{
   const cv=$('#ed-3d'),pv=$('#ed-pv'),SIZES={Album:180,LP:180,EP:150,Single:120};
   let ok=null,loading=null,R,scene,cam,pivot,pair,rec,spinG,frontMat,backMat,edgeMat,discA,discB,raf=0;
-  let PXU=1,Scur=180,out=0,outT=1,T0=null,openedAt=0,lastDrag=-1e9,uRot=0,uVel=0,uTilt=0,tVel=0,spinA=0,sig={},tok=0,softT;
-  const W=1,TP=.004,GAP=.01,TAPER=.05,EMIN=.0012,RAD=.47,TH=.006,END_ROT=-.38;
+  let Scur=180,out=0,outT=1,T0=null,openedAt=0,lastDrag=-1e9,uRot=0,uVel=0,uTilt=0,tVel=0,spinA=0,sig={},tok=0,softT;
+  const CAM=900,W=1,TP=.004,GAP=.01,TAPER=.05,EMIN=.0012,RAD=.47,TH=.006,END_ROT=-.38;
   function load(){
     if(window.THREE)return Promise.resolve();
     if(loading)return loading;
@@ -1227,7 +1243,7 @@ const S3D=(()=>{
   function init(){
     try{R=new THREE.WebGLRenderer({canvas:cv,alpha:true,antialias:true})}catch(_){return false}
     R.setPixelRatio(devicePixelRatio||1);R.outputEncoding=THREE.sRGBEncoding;
-    scene=new THREE.Scene();cam=new THREE.PerspectiveCamera(45.2,1,.1,100);cam.position.set(0,0,8.16);
+    scene=new THREE.Scene();cam=new THREE.PerspectiveCamera(20,1,10,4000);cam.position.set(0,0,CAM);   // in screen pixels, from far enough back that nothing swells past the drawing
     const key=new THREE.DirectionalLight(0xffffff,.7),fill=new THREE.DirectionalLight(0xfff2e0,.25);key.position.set(3,4,6);fill.position.set(-4,-2,3);
     scene.add(new THREE.AmbientLight(0xffffff,.65),key,fill);
     pivot=new THREE.Group();pair=new THREE.Group();scene.add(pivot);pivot.add(pair);
@@ -1246,15 +1262,15 @@ const S3D=(()=>{
     addEventListener('resize',size);
     // swipe sideways to spin, up and down to tilt; a tap slides the record in or out
     let drag=false,moved=false,lx=0,ly=0;
-    cv.addEventListener('pointerdown',e=>{drag=true;moved=false;lx=e.clientX;ly=e.clientY;cv.setPointerCapture&&cv.setPointerCapture(e.pointerId)});
-    cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+    pv.addEventListener('pointerdown',e=>{if(!pv.classList.contains('three'))return;drag=true;moved=false;lx=e.clientX;ly=e.clientY;pv.setPointerCapture&&pv.setPointerCapture(e.pointerId)});
+    pv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
       if(dx){uRot+=dx*.008;uVel=dx*.008}if(dy){uTilt=Math.max(-.5,Math.min(.5,uTilt+dy*.006));tVel=dy*.006}
       if(Math.abs(dx)>2||Math.abs(dy)>2){moved=true;lastDrag=performance.now()}});
     const up=()=>{if(!drag)return;drag=false;if(!moved)outT=outT?0:1};
-    cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+    pv.addEventListener('pointerup',up);pv.addEventListener('pointercancel',up);
     return true;
   }
-  function size(){const w=pv.clientWidth,h=pv.clientHeight;if(!w||!h)return;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();PXU=h/(2*8.16*Math.tan(45.2/2*Math.PI/180))}
+  function size(){const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;R.setSize(w,h,false);cam.aspect=w/h;cam.fov=2*Math.atan(h/2/CAM)*180/Math.PI;cam.updateProjectionMatrix()}
   /* ---- what's printed on it ---- */
   const nm=()=>({t:ED.title||'Untitled',a:ED.artist||'Unknown Artist',c:clothOf((ED.title||'')+'|'+(ED.artist||''))});
   function phCover(){   // no picture: the album's color with its initials and a record, like the flat cards
@@ -1338,7 +1354,7 @@ const S3D=(()=>{
   function frame(ts){
     if(!$('#ed-page').classList.contains('open')){raf=0;return}   // the page closed: stop drawing
     if(T0===null)T0=ts;const t=(ts-T0)/1000,intro=ease(Math.min(1,t/1.1));if(t>=1.1&&!openedAt)openedAt=ts;
-    Scur+=((SIZES[ED.type]||180)-Scur)*.18;pivot.scale.setScalar(Scur/PXU);
+    Scur+=((SIZES[ED.type]||180)-Scur)*.18;pivot.scale.setScalar(Scur);
     out+=((t>1?outT:0)-out)*.12;rec.position.x=out*.42*W;pair.position.x=-.21*W*out;
     spinA-=(.15+out*.55)*.016;spinG.rotation.z=spinA;
     uRot+=uVel;uVel*=.94;uTilt+=tVel;tVel*=.9;uTilt=Math.max(-.5,Math.min(.5,uTilt));
