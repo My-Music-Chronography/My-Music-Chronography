@@ -207,6 +207,9 @@
   .pv.in .disc{transform:translateX(42%);}
   .sleeve{position:absolute; inset:0; border:3px solid #000; border-radius:4px; overflow:hidden; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.25);}
   .sleeve .art{position:absolute; inset:0; width:100%; height:100%;}
+  /* the 3D sleeve (drawn with Three.js); the flat one above stays as the fallback */
+  .pv canvas.s3d{position:absolute; inset:0; width:100%; height:100%; display:none; touch-action:none; cursor:grab;}
+  .pv.three canvas.s3d{display:block;} .pv.three .sleeve-wrap{display:none;}
   .sleeve .hint{position:absolute; left:0; right:0; bottom:0; padding:3px 0; background:rgba(0,0,0,.55); color:#fff; text-align:center;
     font:700 .52rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase;}
 
@@ -603,7 +606,7 @@ start();
   <div class="pg-head"><button type="button" id="ed-cancel">Cancel</button><h2 id="ed-title">Add an Album</h2><button type="button" class="go" id="ed-save" disabled>Add</button></div>
   <div class="pg-body">
     <div class="seg" id="ed-type"><button type="button" data-t="Album" class="on">Album</button><button type="button" data-t="LP">LP</button><button type="button" data-t="EP">EP</button><button type="button" data-t="Single">Single</button></div>
-    <div class="pv" id="ed-pv"><div class="sleeve-wrap" id="ed-sw"><div class="disc"><i class="lbl"></i></div><div class="sleeve" id="ed-sleeve"></div></div></div>
+    <div class="pv" id="ed-pv"><div class="sleeve-wrap" id="ed-sw"><div class="disc"><i class="lbl"></i></div><div class="sleeve" id="ed-sleeve"></div></div><canvas class="s3d" id="ed-3d" aria-label="The album's sleeve and record. Swipe to turn it, tap to slide the record."></canvas></div>
     <div class="list-divider sm"><span>Look Up</span></div>
     <div class="lk">
       <div class="fc"><label for="lk-album">Album</label><input id="lk-album" autocomplete="off" enterkeyhint="search" placeholder="Album name"></div>
@@ -1118,7 +1121,7 @@ function openEditor(id){
   $('#lk-album').value='';$('#lk-artist').value='';$('#lk-res').innerHTML='';LK=[];lkQ=null;SEL.clear();BULK=false;updBar();setLkType(S.ui.lkType||'All');
   setLkSt('Search MusicBrainz to fill everything in, or type it yourself below.');
   $('#cv-res').innerHTML='';$('#cv-st').hidden=true;CV=[];
-  fillForm();$('#ed-pv').classList.remove('in');openPage('#ed-page');
+  fillForm();$('#ed-pv').classList.remove('in');openPage('#ed-page');S3D.open();
   requestAnimationFrame(()=>requestAnimationFrame(()=>$('#ed-pv').classList.add('in')));
 }
 function fillForm(){
@@ -1132,6 +1135,7 @@ function renderSleeve(){
   $('#ed-sw').querySelector('.lbl').style.setProperty('--c',clothOf((ED.title||'')+'|'+(ED.artist||'')));
   $('#ed-sleeve').innerHTML=artHTML(ED,'',`--sz:${s}px;`)+`<div class="hint">${ED.cover?'Change cover':'Add cover'}</div>`;
   $('#ed-nophoto').disabled=!ED.cover;
+  S3D.update();
 }
 function renderTracks(){
   const c=clothOf((ED.title||'')+'|'+(ED.artist||''));
@@ -1139,7 +1143,7 @@ function renderTracks(){
   let h='',ld=null,n=0;
   ED.tracks.forEach((x,i)=>{const d=x.d||1;if(discs&&d!==ld){h+=`<div class="disc-row">Disc ${d}</div>`;ld=d;n=0}n++;
     h+=`<div class="trk" data-i="${i}"><span class="n" style="--c:${c}">${n}</span><input class="tt" value="${esc(x.t)}" placeholder="Track title" autocomplete="off"><input class="tl" value="${esc(fmtLen(x.len))}" placeholder="0:00" inputmode="numeric" autocomplete="off"><button type="button" class="x" aria-label="Remove track">×</button></div>`});
-  $('#ed-tracks').innerHTML=h;trkHead();
+  $('#ed-tracks').innerHTML=h;trkHead();S3D.soft();
 }
 function trkHead(){const n=ED.tracks.length,l=total(ED);$('#ed-trk-h').textContent=n?`Tracks · ${n}${l?' · '+fmtLen(l):''}`:'Tracks'}
 function validate(){
@@ -1151,13 +1155,13 @@ $('#ed-type').addEventListener('click',e=>{const b=e.target.closest('button');if
   $$('#ed-type button').forEach(x=>x.classList.toggle('on',x===b));renderSleeve()});
 const bind=(sel,k,after)=>$(sel).addEventListener('input',e=>{ED[k]=e.target.value;after&&after();validate()});
 bind('#ed-t','title',()=>{renderSleeveSoft()});bind('#ed-a','artist',()=>{renderSleeveSoft()});
-bind('#ed-y','year');bind('#ed-g','genre');bind('#ed-l','label');
+bind('#ed-y','year',()=>S3D.soft());bind('#ed-g','genre');bind('#ed-l','label',()=>S3D.soft());
 $('#ed-y').addEventListener('input',e=>{const v=e.target.value.replace(/\D/g,'').slice(0,4);if(v!==e.target.value){e.target.value=v;ED.year=v}});
 let svT;function renderSleeveSoft(){clearTimeout(svT);svT=setTimeout(()=>{renderSleeve();renderTracksColor()},250)}
 function renderTracksColor(){const c=clothOf((ED.title||'')+'|'+(ED.artist||''));$$('#ed-tracks .n').forEach(n=>n.style.setProperty('--c',c))}
 ['#ed-t','#ed-a'].forEach(s=>$(s).addEventListener('blur',e=>{e.target.closest('.fc').dataset.tried='1';validate()}));
 $('#ed-tracks').addEventListener('input',e=>{const r=e.target.closest('.trk');if(!r)return;const x=ED.tracks[+r.dataset.i];
-  if(e.target.classList.contains('tt'))x.t=e.target.value;else{x.len=parseLen(e.target.value);trkHead()}});
+  if(e.target.classList.contains('tt')){x.t=e.target.value;S3D.soft()}else{x.len=parseLen(e.target.value);trkHead()}});
 $('#ed-tracks').addEventListener('change',e=>{if(e.target.classList.contains('tl')){const r=e.target.closest('.trk');const x=ED.tracks[+r.dataset.i];e.target.value=fmtLen(x.len)}});
 $('#ed-tracks').addEventListener('click',e=>{const b=e.target.closest('.x');if(!b)return;ED.tracks.splice(+b.closest('.trk').dataset.i,1);renderTracks()});
 $('#ed-addtrk').onclick=()=>{const d=ED.tracks.length?ED.tracks[ED.tracks.length-1].d||1:1;ED.tracks.push({t:'',len:0,d});renderTracks();
@@ -1188,6 +1192,172 @@ let delT;$('#ed-del').onclick=()=>{const b=$('#ed-del');
   if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Tap again to delete';clearTimeout(delT);delT=setTimeout(()=>{b.classList.remove('armed');b.textContent='Delete Album'},3000);return}
   S.albums=S.albums.filter(x=>x.id!==ED.id);ED0=edSnap();save();render();closePage('#ed-page');
   setTimeout(()=>{if(stack.includes('#al-page'))closePage('#al-page');if(stack.includes('#ar-page'))renderArtist()},60);toast('Album deleted')};
+
+/* ---- the 3D sleeve: like Stack Tracker's book. A solid sleeve you can swipe round (sideways spins it, up and down
+   tilts it a little) that drifts gently when left alone; the record sits inside and slides out the open side; the
+   back carries the tracklist. Three.js loads the first time the page opens; until then (or without WebGL) the flat
+   sleeve shows. ---- */
+const S3D=(()=>{
+  const cv=$('#ed-3d'),pv=$('#ed-pv'),SIZES={Album:180,LP:180,EP:150,Single:120};
+  let ok=null,loading=null,R,scene,cam,pivot,pair,rec,spinG,frontMat,backMat,edgeMat,discA,discB,raf=0;
+  let PXU=1,Scur=180,out=0,outT=1,T0=null,openedAt=0,lastDrag=-1e9,uRot=0,uVel=0,uTilt=0,tVel=0,spinA=0,sig={},tok=0,softT;
+  const W=1,TP=.004,GAP=.01,TAPER=.05,EMIN=.0012,RAD=.47,TH=.006,END_ROT=-.38;
+  function load(){
+    if(window.THREE)return Promise.resolve();
+    if(loading)return loading;
+    const add=src=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)});
+    return loading=add('three.min.js').catch(()=>add('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'));
+  }
+  const can=n=>{const c=document.createElement('canvas');c.width=c.height=n;return c};
+  const tex=c=>{const t=new THREE.CanvasTexture(c);t.anisotropy=8;t.encoding=THREE.sRGBEncoding;return t};
+  const lam=o=>new THREE.MeshLambertMaterial(o);
+  // a cover panel: full depth in the middle; on the closed sides (left, top, bottom) front and back curve in and
+  // meet in a rounded edge thinning to almost nothing; the right stays open; the outside bows a little over the record
+  function panel(dir){
+    const g=new THREE.BoxGeometry(W,W,1,64,64,1),p=g.attributes.position,rc=.012,BULGE=.02;
+    for(let i=0;i<p.count;i++){let X=p.getX(i),Y=p.getY(i);const Z=p.getZ(i),cx=W/2-rc,ax=Math.abs(X),ay=Math.abs(Y);
+      if(ax>cx&&ay>cx){const dx=ax-cx,dy=ay-cx,d=Math.hypot(dx,dy);if(d>rc){X=Math.sign(X)*(cx+dx/d*rc);Y=Math.sign(Y)*(cx+dy/d*rc)}}
+      const d=Math.min(X+W/2,W/2-Y,Y+W/2),t=Math.sin(Math.min(1,Math.max(0,d)/TAPER)*Math.PI/2);
+      const r=Math.hypot(X,Y)/(W*.49),b=r<1?BULGE*Math.pow(Math.cos(r*Math.PI/2),1.5):0;
+      p.setXYZ(i,X,Y,dir*(Z>0?EMIN+t*(GAP/2+TP-EMIN)+b*t:EMIN*.5+t*(GAP/2-EMIN*.5)+b*t*.6))}
+    if(dir<0){const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setX(i,1-uv.getX(i));
+      const ix=g.index.array;for(let i=0;i<ix.length;i+=3){const a=ix[i+1];ix[i+1]=ix[i+2];ix[i+2]=a}}
+    g.computeVertexNormals();return g;
+  }
+  function init(){
+    try{R=new THREE.WebGLRenderer({canvas:cv,alpha:true,antialias:true})}catch(_){return false}
+    R.setPixelRatio(devicePixelRatio||1);R.outputEncoding=THREE.sRGBEncoding;
+    scene=new THREE.Scene();cam=new THREE.PerspectiveCamera(45.2,1,.1,100);cam.position.set(0,0,8.16);
+    const key=new THREE.DirectionalLight(0xffffff,.7),fill=new THREE.DirectionalLight(0xfff2e0,.25);key.position.set(3,4,6);fill.position.set(-4,-2,3);
+    scene.add(new THREE.AmbientLight(0xffffff,.65),key,fill);
+    pivot=new THREE.Group();pair=new THREE.Group();scene.add(pivot);pivot.add(pair);
+    const inside=lam({color:0x14110f});edgeMat=lam({color:0x333333});frontMat=lam({});backMat=lam({});
+    pair.add(new THREE.Mesh(panel(1),[edgeMat,edgeMat,edgeMat,edgeMat,frontMat,inside]),new THREE.Mesh(panel(-1),[edgeMat,edgeMat,edgeMat,edgeMat,backMat,inside]));
+    discA=new THREE.MeshPhongMaterial({shininess:120,specular:0x161616});discB=discA.clone();
+    const disc=new THREE.Mesh(new THREE.CylinderGeometry(RAD,RAD,TH,128),[lam({color:0x0d0b0a}),discA,discB]);disc.rotation.x=Math.PI/2;
+    spinG=new THREE.Group();spinG.add(disc);rec=new THREE.Group();rec.add(spinG);pair.add(rec);
+    // the soft shine: two bright wedges that stay put while the record turns under them
+    const n=512,c=can(n),x=c.getContext('2d'),m=n/2;
+    for(let a=0;a<360;a++){const d=Math.min(Math.abs(((a-40+540)%360)-180),Math.abs(((a-220+540)%360)-180)),v=Math.max(0,1-d/22);
+      x.fillStyle=`rgba(255,255,255,${(v*v*.14).toFixed(3)})`;x.beginPath();x.moveTo(m,m);x.arc(m,m,m*.98,(a-90)*Math.PI/180,(a-89)*Math.PI/180);x.fill()}
+    x.globalCompositeOperation='destination-out';x.beginPath();x.arc(m,m,m*.38,0,7);x.fill();
+    const sm=new THREE.MeshBasicMaterial({map:tex(c),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false});
+    const sA=new THREE.Mesh(new THREE.CircleGeometry(RAD*.985,96),sm);sA.position.z=TH/2+.0008;const sB=sA.clone();sB.position.z=-TH/2-.0008;sB.rotation.y=Math.PI;rec.add(sA,sB);
+    addEventListener('resize',size);
+    // swipe sideways to spin, up and down to tilt; a tap slides the record in or out
+    let drag=false,moved=false,lx=0,ly=0;
+    cv.addEventListener('pointerdown',e=>{drag=true;moved=false;lx=e.clientX;ly=e.clientY;cv.setPointerCapture&&cv.setPointerCapture(e.pointerId)});
+    cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+      if(dx){uRot+=dx*.008;uVel=dx*.008}if(dy){uTilt=Math.max(-.5,Math.min(.5,uTilt+dy*.006));tVel=dy*.006}
+      if(Math.abs(dx)>2||Math.abs(dy)>2){moved=true;lastDrag=performance.now()}});
+    const up=()=>{if(!drag)return;drag=false;if(!moved)outT=outT?0:1};
+    cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+    return true;
+  }
+  function size(){const w=pv.clientWidth,h=pv.clientHeight;if(!w||!h)return;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();PXU=h/(2*8.16*Math.tan(45.2/2*Math.PI/180))}
+  /* ---- what's printed on it ---- */
+  const nm=()=>({t:ED.title||'Untitled',a:ED.artist||'Unknown Artist',c:clothOf((ED.title||'')+'|'+(ED.artist||''))});
+  function phCover(){   // no picture: the album's color with its initials and a record, like the flat cards
+    const n=1024,c=can(n),x=c.getContext('2d'),{t,c:col}=nm();x.fillStyle=col;x.fillRect(0,0,n,n);
+    x.strokeStyle='rgba(255,255,255,.08)';x.lineWidth=n/180;for(let i=0;i<n;i+=n/20){x.beginPath();x.moveTo(i,0);x.lineTo(i,n);x.stroke();x.beginPath();x.moveTo(0,i);x.lineTo(n,i);x.stroke()}
+    x.fillStyle=x.strokeStyle='#f3eee4';x.textAlign='center';x.textBaseline='middle';x.font=`700 ${n*.34}px Georgia`;x.fillText(initials(t),n/2,n*.4);
+    x.lineWidth=n*.026;x.beginPath();x.arc(n/2,n*.72,n*.13,0,7);x.stroke();x.beginPath();x.arc(n/2,n*.72,n*.04,0,7);x.fill();return c;
+  }
+  function edgeOf(c){   // the edges are the printed card wrapping round: the cover's own color, a shade darker
+    const x=c.getContext('2d'),n=c.width;let r=0,g=0,b=0,k=0;
+    try{[[0,0,n,8],[0,n-8,n,8],[0,0,8,n]].forEach(([X,Y,w,h])=>{const d=x.getImageData(X,Y,w,h).data;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];k++}})}catch(_){return new THREE.Color(0x333333)}
+    return new THREE.Color(`rgb(${Math.round(r/k*.82)},${Math.round(g/k*.82)},${Math.round(b/k*.82)})`).convertSRGBToLinear();
+  }
+  function setFront(c){const t=tex(c);if(frontMat.map)frontMat.map.dispose();frontMat.map=t;frontMat.needsUpdate=true;edgeMat.color.copy(edgeOf(c))}
+  function front(){
+    const my=++tok;setFront(phCover());if(!ED.cover)return;
+    const im=new Image();if(!/^data:/.test(ED.cover))im.crossOrigin='anonymous';
+    im.onload=()=>{if(my!==tok)return;const n=1024,c=can(n),x=c.getContext('2d'),k=Math.max(n/im.naturalWidth,n/im.naturalHeight),w=im.naturalWidth*k,h=im.naturalHeight*k;
+      x.drawImage(im,(n-w)/2,(n-h)/2,w,h);try{x.getImageData(0,0,1,1);setFront(c)}catch(_){}};   // a picture we may not read stays the placeholder
+    im.src=ED.cover;
+  }
+  function recordFace(side){
+    const n=1024,c=can(n),x=c.getContext('2d'),m=n/2,{t,a,c:col}=nm();
+    x.fillStyle='#000';x.fillRect(0,0,n,n);x.fillStyle='#1c1916';x.beginPath();x.arc(m,m,m*.985,0,7);x.fill();
+    for(let r=m*.97;r>m*.38;r-=m*.0065){const l=r%3<1.5;x.strokeStyle=l?'rgba(58,52,48,.9)':'rgba(44,40,36,.9)';x.lineWidth=m*.0025;x.beginPath();x.arc(m,m,r,0,7);x.stroke()}
+    [.93,.78,.62,.5].forEach(k=>{x.strokeStyle='#100e0c';x.lineWidth=m*.012;x.beginPath();x.arc(m,m,m*k,0,7);x.stroke()});
+    x.fillStyle=col;x.beginPath();x.arc(m,m,m*.36,0,7);x.fill();x.strokeStyle='rgba(0,0,0,.35)';x.lineWidth=m*.02;x.stroke();
+    x.save();x.translate(m,m);x.fillStyle='#f3eee4';x.textAlign='center';
+    const fit=(s,f,w)=>{x.font=f;while(s.length>1&&x.measureText(s).width>w)s=s.slice(0,-2)+'…';return s};
+    x.fillText(fit(t,`700 ${m*.075}px Georgia`,m*.62),0,-m*.16);x.fillText(fit(a.toUpperCase(),`700 ${m*.04}px Arial`,m*.6),0,-m*.09);
+    x.font=`700 ${m*.045}px Arial`;x.fillText(side,0,m*.2);x.font=`${m*.032}px Arial`;x.fillText(ED.type==='Single'?'45 RPM':'33⅓ RPM',0,m*.27);x.restore();
+    x.fillStyle='#efeadf';x.beginPath();x.arc(m,m,m*.035,0,7);x.fill();return tex(c);
+  }
+  // the back: a slim heading and footer leave most of it for the tracklist. Names wrap rather than being cut short;
+  // 2, 3 or 4 columns at the largest type that fits them all (2 columns split into Side A and Side B when that fits)
+  function backFace(){
+    const n=1024,c=can(n),x=c.getContext('2d'),{t:title,a:artist}=nm(),T=(ED.tracks||[]).map(r=>(r.t||'').trim()).filter(Boolean),N=T.length,L=n*.07,Rt=n*.93;
+    x.fillStyle='#efeadf';x.fillRect(0,0,n,n);x.textAlign='left';
+    const fit=(s,w)=>{while(s.length>1&&x.measureText(s).width>w)s=s.slice(0,-2)+'…';return s};
+    x.fillStyle='#2b2620';x.font=`700 ${n*.048}px Georgia`;x.fillText(fit(title,Rt-L),L,n*.085);
+    x.fillStyle='#7a2f2b';x.font=`700 ${n*.024}px Arial`;x.fillText(fit(artist.toUpperCase(),Rt-L),L,n*.122);
+    x.fillStyle='#2b2620';x.fillRect(L,n*.142,Rt-L,n*.004);
+    const top=n*.175,bot=n*.885,gapC=n*.03;
+    function layout(cols,fs,sides){
+      const colW=(Rt-L-gapC*(cols-1))/cols,lh=fs*1.2,gap=fs*.42,out=[];x.font=`${fs}px Georgia`;
+      const nw=x.measureText(N>99?'000. ':'00. ').width;let col=0,y=top+(sides?fs*1.6:0);
+      for(let i=0;i<N;i++){
+        if(sides&&i===Math.ceil(N/2)){col=1;y=top+fs*1.6}
+        const lines=[];let ln='';
+        T[i].split(/\s+/).forEach(w=>{const tr=ln?ln+' '+w:w;if(x.measureText(tr).width<=colW-nw||!ln)ln=tr;else{lines.push(ln);ln=w}});if(ln)lines.push(ln);
+        if(lines.some(l=>x.measureText(l).width>colW-nw))return null;
+        const h=lines.length*lh;if(y+h>bot){if(sides||col===cols-1)return null;col++;y=top}
+        out.push({num:`${i+1}.`,lines,X:L+col*(colW+gapC),Y:y,nw});y+=h+gap;
+      }
+      return{out,fs,lh,sides,colW};
+    }
+    let best=null;
+    if(N)for(const cols of [2,3,4])for(const sides of cols===2?[true,false]:[false]){
+      let lo=n*.012,hi=n*.036,got=null;for(let k=0;k<14;k++){const md=(lo+hi)/2,l=layout(cols,md,sides);if(l){got=l;lo=md}else hi=md}
+      if(got&&(!best||got.fs>best.fs*1.04||(got.sides&&got.fs>=best.fs*.9)))best=got;
+    }
+    if(!N){x.fillStyle='#8a8378';x.font=`${n*.03}px Georgia`;x.textAlign='center';x.fillText('No tracks listed',n/2,n*.53);x.textAlign='left'}
+    else{if(!best){best=null;for(let fs=n*.012;fs>n*.004&&!best;fs*=.9)best=layout(4,fs,false)}   // very long: as small as it takes
+      if(best){if(best.sides)['SIDE A','SIDE B'].forEach((s,k)=>{x.font=`700 ${best.fs*.72}px Arial`;x.fillStyle='#8a8378';x.fillText(s,L+k*(best.colW+gapC),top+best.fs*.75)});
+        best.out.forEach(r=>{x.font=`${best.fs}px Georgia`;x.fillStyle='#8a8378';x.fillText(r.num,r.X,r.Y+best.fs*.85);
+          x.fillStyle='#2b2620';r.lines.forEach((l,k)=>x.fillText(l,r.X+r.nw,r.Y+best.fs*.85+k*best.lh))})}}
+    x.fillStyle='#2b2620';x.fillRect(L,n*.9,Rt-L,n*.003);
+    x.font=`${n*.02}px Arial`;x.fillStyle='#8a8378';x.fillText(fit([ED.label,ED.year,N?`${N} track${N===1?'':'s'}`:''].filter(Boolean).join(' · '),Rt-L-n*.2),L,n*.94);
+    for(let i=0;i<30;i++){x.fillStyle='#2b2620';x.fillRect(Rt-n*.16+i*n*.0052,n*.912,n*(.002+((i*7)%5)*.0014),n*.05)}
+    return tex(c);
+  }
+  // only what changed is redrawn
+  function update(){
+    if(!ok)return;const {t,a}=nm(),tr=(ED.tracks||[]).map(r=>r.t||'').join('\n');
+    const f=t+'|'+a+'|'+(ED.cover?ED.cover.length+ED.cover.slice(-60):''),l=t+'|'+a+'|'+ED.type,b=t+'|'+a+'|'+tr+'|'+(ED.label||'')+'|'+(ED.year||'');
+    if(sig.f!==f){sig.f=f;front()}
+    if(sig.l!==l){sig.l=l;[discA,discB].forEach((m,i)=>{if(m.map)m.map.dispose();m.map=recordFace(i?'SIDE B':'SIDE A');m.needsUpdate=true})}
+    if(sig.b!==b){sig.b=b;if(backMat.map)backMat.map.dispose();backMat.map=backFace();backMat.needsUpdate=true}
+  }
+  const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+  function frame(ts){
+    if(!$('#ed-page').classList.contains('open')){raf=0;return}   // the page closed: stop drawing
+    if(T0===null)T0=ts;const t=(ts-T0)/1000,intro=ease(Math.min(1,t/1.1));if(t>=1.1&&!openedAt)openedAt=ts;
+    Scur+=((SIZES[ED.type]||180)-Scur)*.18;pivot.scale.setScalar(Scur/PXU);
+    out+=((t>1?outT:0)-out)*.12;rec.position.x=out*.42*W;pair.position.x=-.21*W*out;
+    spinA-=(.15+out*.55)*.016;spinG.rotation.z=spinA;
+    uRot+=uVel;uVel*=.94;uTilt+=tVel;tVel*=.9;uTilt=Math.max(-.5,Math.min(.5,uTilt));
+    const settle=Math.max(openedAt+1400,lastDrag+2500),st=ts-settle,sway=openedAt&&st>0&&Math.abs(uVel)<=.0012?Math.sin(st/1200)*.05*Math.min(1,st/1800):0;
+    pivot.rotation.y=END_ROT-Math.PI*2*(1-intro)+uRot+sway;
+    pivot.rotation.x=uTilt+(intro<1?.2*Math.sin(Math.PI*intro):0);
+    R.render(scene,cam);raf=requestAnimationFrame(frame);
+  }
+  // each time the page opens: it arrives with a turn, then the record slides out
+  function open(){
+    T0=null;openedAt=0;uRot=uVel=uTilt=tVel=0;out=0;outT=1;Scur=SIZES[ED.type]||180;lastDrag=-1e9;
+    load().then(()=>{
+      if(ok===null)ok=init();if(!ok)return;
+      pv.classList.add('three');size();update();
+      if(!raf)raf=requestAnimationFrame(frame);
+    }).catch(()=>{ok=false});
+  }
+  return{open,update,soft:()=>{clearTimeout(softT);softT=setTimeout(update,300)}};
+})();
 
 /* ---- the artist list (picker) ---- */
 $('#ed-alist').onclick=()=>{$('#ap-new').value='';renderAp();openPage('#ap-page')};
