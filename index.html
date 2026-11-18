@@ -450,6 +450,7 @@
   .rs-card.on{background:var(--ink); color:#d6cfc2;} .rs-card.on .rs-when{color:#fff;}
   /* bookcloth buttons in the footer */
   .dt-pair{display:flex; gap:4px;} .dt-pair[hidden]{display:none;}
+  .cloth-btn:disabled{filter:saturate(.6) brightness(.9); cursor:default;}
   .cloth-btn{position:relative; overflow:hidden; flex:1 1 0; min-width:0; height:45px; margin:0; padding:0; border:3px solid #000; border-radius:8px; color:#fff; cursor:pointer;
     background-color:var(--cloth); background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 3px),
       repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px), linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.12));
@@ -991,9 +992,11 @@ function dtStats(){
     ${tc.length?`<div class="list-divider sm"><span>By Type</span></div>${bars(tc,tmax,n=>TYPE_C[n])}`:''}
     ${gs.length?`<div class="list-divider sm"><span>Top Genres</span></div>${bars(gs,gmax,n=>clothOf('g|'+n))}`:''}
     ${ds.length?`<div class="list-divider sm"><span>By Decade</span></div>${bars(ds.map(([d,v])=>[d+'s',v]),dmax,(n,i)=>CLOTHS[i%CLOTHS.length])}`:''}
+    <div class="list-divider sm"><span>Artwork</span></div>
+    <div class="stats two" id="dt-art-st">${artCounts()}</div>
     <div class="list-divider sm"><span>About</span></div>
     <div class="note">Album details from <a href="https://musicbrainz.org" target="_blank" rel="noopener">MusicBrainz</a>, covers from the <a href="https://coverartarchive.org" target="_blank" rel="noopener">Cover Art Archive</a>, Deezer, TheAudioDB and <a href="https://www.apple.com/itunes/" target="_blank" rel="noopener">iTunes</a>, artist photos from <a href="https://www.deezer.com" target="_blank" rel="noopener">Deezer</a>, <a href="https://www.theaudiodb.com" target="_blank" rel="noopener">TheAudioDB</a> and <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a>, and previews from Deezer. All free, none need an account.</div>`;
-  setFoot('');
+  artFoot();
 }
 
 function dtBackup(){
@@ -1933,12 +1936,13 @@ async function keepPhoto(url){try{return await shrink(url,500)}catch(_){return u
 let phChain=Promise.resolve();
 function autoPhoto(name){
   const k=akey(name),e=S.artists[k]||(S.artists[k]={});
-  if(e.photo||e.none||(e.tried&&Date.now()-e.tried<7*864e5))return;
+  if(e.photo||e.none||(e.tried&&Date.now()-e.tried<864e5))return;   // a search that came up empty is tried again a day later
   phChain=phChain.then(async()=>{
-    e.tried=Date.now();
-    try{const pick=(await deezerArtists(name)).find(x=>nameNorm(x.name)===nameNorm(name));if(pick){e.photo=await keepPhoto(pick.url);e.src='Deezer'}}catch(_){}
-    if(!e.photo){try{const a=(await adbPhotos(name))[0];if(a){e.photo=await keepPhoto(a.url);e.src=a.src}}catch(_){}}
-    if(!e.photo){try{const w=await wikiPhoto(name);if(w){e.photo=await keepPhoto(w.url);e.src=w.src}}catch(_){}}
+    if(e.photo||!navigator.onLine)return;let reached=false;   // offline, or every source failing to answer, doesn't count as a try
+    try{const pick=(await deezerArtists(name)).find(x=>nameNorm(x.name)===nameNorm(name));reached=true;if(pick){e.photo=await keepPhoto(pick.url);e.src='Deezer'}}catch(_){}
+    if(!e.photo){try{const a=(await adbPhotos(name))[0];reached=true;if(a){e.photo=await keepPhoto(a.url);e.src=a.src}}catch(_){}}
+    if(!e.photo){try{const w=await wikiPhoto(name);reached=true;if(w){e.photo=await keepPhoto(w.url);e.src=w.src}}catch(_){}}
+    if(reached)e.tried=Date.now();
     save();if(e.photo){render();if(stack.includes('#ar-page')&&akey(arName)===k)renderArtist()}
   }).catch(()=>{});
 }
@@ -2082,12 +2086,13 @@ async function itunesCovers(a){
 let cvChain=Promise.resolve();
 function autoCover(id){
   cvChain=cvChain.then(async()=>{
-    const a=S.albums.find(x=>x.id===id);if(!a||a.cover||a.noCover||(a.coverTried&&Date.now()-a.coverTried<7*864e5))return;
-    a.coverTried=Date.now();
+    const a=S.albums.find(x=>x.id===id);if(!a||a.cover||a.noCover||(a.coverTried&&Date.now()-a.coverTried<864e5)||!navigator.onLine)return;
+    let reached=false;   // only a search that got answers (and found nothing) waits a day before trying again
     for(const f of [caaCovers,deezerCovers,adbCovers,itunesCovers]){
-      let c=null;try{c=(await f(a))[0]}catch(_){}
+      let c=null;try{c=(await f(a))[0];if(f!==caaCovers)reached=true}catch(_){}
       if(c&&!a.cover){a.cover=await keepPhoto(c.url);a.coverSrc=c.src;break}
     }
+    if(reached&&!a.cover)a.coverTried=Date.now();
     save();if(a.cover){render();if(alId===a.id&&stack.includes('#al-page'))renderAlbum();if(stack.includes('#ar-page'))renderArtist()}
   }).catch(()=>{});
 }
@@ -2261,6 +2266,32 @@ $('#imp-file').addEventListener('change',async e=>{
   if(parseImport(txt).state!=='ok')toast(`${f.name} isn’t a My Music Chronography backup`);
 });
 
+/* ---- Refresh Artwork (Data › Stats): looks again, straight away, for every album without a cover and every artist
+   without a photo, including pictures kept as links that no longer load. Ones you set to No Cover / No Photo are left. ---- */
+let ARTRUN=false;
+const missCovers=()=>S.albums.filter(a=>!a.cover&&!a.noCover).length;
+const missPhotos=()=>[...artistMap().values()].filter(x=>{const e=S.artists[akey(x.name)]||{};return !e.photo&&!e.none}).length;
+function artCounts(){const c=missCovers(),p=missPhotos();return `<div><b>${c}</b><small>Albums Without Covers</small></div><div><b>${p}</b><small>Artists Without Photos</small></div>`}
+function artFoot(){setFoot(`<button type="button" class="cloth-btn" style="--cloth:#5b6633" id="dt-art"${ARTRUN?' disabled':''}>${ARTRUN?'<span class="spin"></span>&nbsp; Searching…':'Refresh Artwork'}</button>`);
+  $('#dt-art').onclick=refreshArt}
+async function refreshArt(){
+  if(ARTRUN)return;if(!navigator.onLine){toast('You’re offline — connect to look for artwork');return}
+  ARTRUN=true;artFoot();
+  // pictures kept as links: any that no longer load count as missing
+  await Promise.all([
+    ...S.albums.filter(a=>a.cover&&!/^data:/.test(a.cover)).map(async a=>{if(!(await imgOk(a.cover))){a.cover='';a.coverSrc=''}}),
+    ...Object.values(S.artists).filter(e=>e&&e.photo&&!/^data:/.test(e.photo)).map(async e=>{if(!(await imgOk(e.photo))){e.photo='';e.src=''}})]);
+  const c0=missCovers(),p0=missPhotos();
+  for(const a of S.albums)if(!a.cover&&!a.noCover)delete a.coverTried;
+  for(const e of Object.values(S.artists))if(e&&!e.photo&&!e.none)delete e.tried;
+  save();fillArt();
+  await Promise.all([phChain,cvChain]);
+  const c1=missCovers(),p1=missPhotos(),fc=Math.max(0,c0-c1),fp=Math.max(0,p0-p1);
+  ARTRUN=false;render();
+  toast(fc||fp?`Found ${fc} cover${fc===1?'':'s'} and ${fp} photo${fp===1?'':'s'}`:(c1||p1?'No new artwork found':'Everything has artwork'));
+}
+// every artist still without a photo and every album still without a cover (a search that found nothing waits a day)
+function fillArt(){for(const x of artistMap().values())autoPhoto(x.name);for(const a of S.albums)if(!a.cover)autoCover(a.id)}
 /* ================= start ================= */
 (async()=>{
   const d=await Store.load();
@@ -2270,9 +2301,12 @@ $('#imp-file').addEventListener('change',async e=>{
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
   setTab(['artists','library','playlists','data'].includes(S.ui.tab)?S.ui.tab:'artists');
   if(S.albums.length)flush();   // writes both copies, so data saved by the old version gets its localStorage copy too
-  for(const x of artistMap().values())autoPhoto(x.name);   // any artist still without a photo (tried at most once a week)
+  // once: forget earlier tries, which could have been marked while offline or before the newer sources, so every
+  // artist without a photo and every album without a cover is looked up afresh
+  if(!S.ui.artRetry2){for(const e of Object.values(S.artists))if(e)delete e.tried;for(const a of S.albums)delete a.coverTried;S.ui.artRetry2=1;save()}
+  fillArt();
   for(const a of S.albums)if(!a.pvChecked)checkPreviews(a.id);   // albums added before preview checks, or while offline
-  for(const a of S.albums)if(!a.cover)autoCover(a.id);           // albums with no cover yet (tried at most once a week)
+  addEventListener('online',fillArt);   // back online: carry on
   (window.__splDone||Promise.resolve()).then(checkBackup);      // a backup that's due: saved on its own, or a reminder
   if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
