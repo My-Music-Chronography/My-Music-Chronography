@@ -628,7 +628,7 @@ start();
       <button type="button" class="card-btn ink" id="lk-go">Search</button>
     </div>
     <div class="seg lk-type" id="lk-type"><button type="button" data-t="All" class="on">All</button><button type="button" data-t="Album">Albums</button><button type="button" data-t="LP">LPs</button><button type="button" data-t="EP">EPs</button><button type="button" data-t="Single">Singles</button></div>
-    <div class="lk-st" id="lk-st">Search MusicBrainz to fill everything in, or type it yourself below.</div>
+    <div class="lk-st" id="lk-st" hidden></div>
     <div class="sr-list" id="lk-res"></div>
     <div class="list-divider sm"><span>Details</span></div>
     <div class="fcard">
@@ -1132,7 +1132,7 @@ function openEditor(id){
   $('#ed-title').textContent=a?'Edit Album':'Add an Album';$('#ed-save').textContent=a?'Save':'Add';
   $('#ed-del').hidden=!a;$('#ed-del').classList.remove('armed');$('#ed-del').textContent='Delete Album';
   $('#lk-album').value='';$('#lk-artist').value='';$('#lk-res').innerHTML='';LK=[];lkQ=null;SEL.clear();BULK=false;updBar();setLkType(S.ui.lkType||'All');
-  setLkSt('Search MusicBrainz to fill everything in, or type it yourself below.');
+  setLkSt('');
   $('#cv-res').innerHTML='';$('#cv-st').hidden=true;CV=[];
   $('#ed-trk-card').classList.remove('open');   // always starts closed
   fillForm();$('#ed-pv').classList.remove('in');openPage('#ed-page');S3D.open();
@@ -1527,7 +1527,7 @@ $('#lk-res').addEventListener('click',async e=>{
   if(ck){if(ck.classList.contains('own'))return;if(SEL.has(key))SEL.delete(key);else{SEL.add(key);if(E)EDSEL.set(key,{g,E})}r.classList.toggle('sel',SEL.has(key));updBar();
     const b=$('#lk-all');if(b)b.textContent=LK.every(x=>SEL.has(x.id)||ownG(x))?'Select none':'Select all';return}
   r.classList.add('busy');const tg=r.querySelector('.tg'),was=tg.innerHTML;tg.innerHTML='<span class="spin"></span>';EDGEN++;   // EDGEN++ stops any runtime lookups so this one isn't kept waiting
-  try{await pickRG(g,E);EDOPEN=null;$('#lk-res').innerHTML='';SEL.clear();updBar();setLkSt(`Filled in from MusicBrainz. Check it over, then tap <b>${ED.id?'Save':'Add'}</b>.`);
+  try{await pickRG(g,E);EDOPEN=null;$('#lk-res').innerHTML='';SEL.clear();updBar();setLkSt('');
     $('#ed-page').scrollTo({top:0,behavior:'smooth'})}
   catch(err){tg.innerHTML=was;r.classList.remove('busy');setLkSt(`Couldn’t load that one (${esc(err.message)}). Try again.`,true)}
 });
