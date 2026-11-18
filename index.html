@@ -179,7 +179,7 @@
   .page{position:fixed; inset:0; z-index:40; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch;
     opacity:0; visibility:hidden; transition:opacity 180ms ease, visibility 0s linear 180ms;}
   .page.open{opacity:1; visibility:visible; transition:opacity 180ms ease, visibility 0s;}
-  #ap-page{z-index:50;} #al-page{z-index:42;} #ar-page{z-index:41;} #ed-page{z-index:45;}
+  #ap-page{z-index:50;} #al-page{z-index:42;} #ar-page{z-index:41;} #dg-page{z-index:43;} #pl-page{z-index:41;} #ed-page{z-index:45;}
   .pg-head{position:sticky; top:0; z-index:5; display:flex; gap:3px; padding-top:env(safe-area-inset-top); background:#000; border-top:3px solid #000; border-bottom:3px solid #000;}
   .pg-head button{flex:0 0 25%; height:42px; margin:0; padding:0 2px; border:0; border-radius:0; background:#7a2f2b; color:#fff;
     font:700 min(.74rem, 2.95vw)/1.1 Arial,sans-serif; text-transform:uppercase; cursor:pointer;}
@@ -252,6 +252,9 @@
   .lk{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 25%; gap:4px;}
   .lk-st{font:.72rem/1.4 Arial,sans-serif; color:var(--muted); text-align:center; padding:6px 8px;}
   .lk-st.err{color:var(--red);}
+  #dg-page #dg-bar{position:fixed; left:0; right:0; bottom:0;}   /* always at the foot of the screen */
+  #dg-page.has-bar .pg-body{padding-bottom:calc(80px + env(safe-area-inset-bottom));}
+  .lk-retry{margin:0 0 0 4px; padding:0; border:0; background:none; font:inherit; color:var(--ink); text-decoration:underline; cursor:pointer;}
   .sr-list{border:3px solid #000; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; gap:3px; background:#000;}
   .sr-list:empty{display:none;}
   .sr-sec{height:22px; display:flex; align-items:center; justify-content:space-between; padding:0 10px; background:var(--hdr-cell);
@@ -285,12 +288,12 @@
   .lk-edst{padding:10px 12px 10px 24px; background:var(--unread); font:.72rem/1.3 Arial,sans-serif; color:var(--muted); display:flex; align-items:center;}
   .lk-row .tg.og{color:#2e4636;}
   .sr-sec button{margin:0; padding:0; border:0; background:none; font:700 .56rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase; color:var(--ink); text-decoration:underline; cursor:pointer;}
-  #lk-bar{position:sticky; bottom:0; z-index:6; display:flex; gap:4px; padding:4px 4px calc(4px + env(safe-area-inset-bottom)); background:var(--band); border-top:3px solid #000; border-bottom:3px solid #000;}
-  #lk-bar[hidden]{display:none;}
-  #lk-bar button{height:45px; margin:0; border:3px solid #000; border-radius:8px; cursor:pointer;}
-  #lk-clear{flex:0 0 25%; background:#fff; font:700 .74rem Arial,sans-serif; letter-spacing:.4px; text-transform:uppercase; color:var(--ink);}
-  #lk-addsel{flex:1; min-width:0; background:#5b6633; color:#fff; font:700 min(.9rem,3.6vw)/1 Georgia,serif; letter-spacing:.12em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  #lk-addsel:disabled{filter:saturate(.6) brightness(.9); cursor:default;}
+  #lk-bar,#dg-bar{position:sticky; bottom:0; z-index:6; display:flex; gap:4px; padding:4px 4px calc(4px + env(safe-area-inset-bottom)); background:var(--band); border-top:3px solid #000; border-bottom:3px solid #000;}
+  #lk-bar[hidden],#dg-bar[hidden]{display:none;}
+  #lk-bar button,#dg-bar button{height:45px; margin:0; border:3px solid #000; border-radius:8px; cursor:pointer;}
+  #lk-clear,#dg-clear{flex:0 0 25%; background:#fff; font:700 .74rem Arial,sans-serif; letter-spacing:.4px; text-transform:uppercase; color:var(--ink);}
+  #lk-addsel,#dg-addsel{flex:1; min-width:0; background:#5b6633; color:#fff; font:700 min(.9rem,3.6vw)/1 Georgia,serif; letter-spacing:.12em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #lk-addsel:disabled,#dg-addsel:disabled{filter:saturate(.6) brightness(.9); cursor:default;}
   .lk-more{height:36px; margin:0; border:0; border-radius:0; background:var(--hdr-cell); font:700 .62rem Arial,sans-serif; letter-spacing:.8px; text-transform:uppercase;}
 
   /* tracks */
@@ -650,6 +653,17 @@ start();
 </div>
 
 <!-- an artist's window -->
+<div class="page" id="dg-page" aria-hidden="true">
+  <div class="pg-head"><button type="button" id="dg-back">Back</button><h2 id="dg-title">Discography</h2><button type="button" class="blank" tabindex="-1">.</button></div>
+  <div class="pg-body" id="dg-body">
+    <div class="seg slim" id="dg-type"><button type="button" data-t="All">All</button><button type="button" data-t="Album">Albums</button><button type="button" data-t="EP">EPs</button><button type="button" data-t="Single">Singles</button></div>
+    <div class="seg slim" id="dg-kind"><button type="button" data-s="1">Studio Releases</button><button type="button" data-s="0">Everything</button></div>
+    <div class="lk-st" id="dg-st" hidden></div>
+    <div class="sr-list" id="dg-res"></div>
+  </div>
+  <div id="dg-bar" class="sel-bar" hidden><button type="button" id="dg-clear">Clear</button><button type="button" id="dg-addsel">Add Selected</button></div>
+</div>
+
 <div class="page" id="ar-page" aria-hidden="true">
   <div class="pg-head"><button type="button" id="ar-back">Back</button><h2 id="ar-title">Artist</h2><button type="button" class="go" id="ar-ren">Rename</button></div>
   <div class="pg-body" id="ar-body"></div>
@@ -891,7 +905,7 @@ function setTab(t){
   if(t!=='data'){$('#app-footer').hidden=false;document.body.classList.remove('no-foot','dt-fit')}
   measure();render();scrollTo(0,0);
 }
-function render(){({library:renderLib,artists:renderArtists,playlists:renderPlaylists,data:renderData})[S.ui.tab]();renderSf()}
+function render(){({library:renderLib,artists:renderArtists,playlists:renderPlaylists,data:renderData})[S.ui.tab]();renderSf();if(stack.includes('#dg-page')&&!DG.busy)paintDisco()}
 let DTV='stats';   // which part of Data is showing
 const vw=()=>((S.ui.view||{})[S.ui.tab])||'list';
 function paintVw(){$$('#vw button').forEach(b=>b.classList.toggle('on',b.dataset.v===vw()))}
@@ -1073,7 +1087,7 @@ const stack=[];
 function openPage(id){const p=$(id);p.classList.add('open');p.setAttribute('aria-hidden','false');p.scrollTop=0;stack.push(id);history.pushState({p:id},'')}
 let skipPop=0;
 function closePage(id,fromPop){const p=$(id);p.classList.remove('open');p.setAttribute('aria-hidden','true');const i=stack.lastIndexOf(id);if(i>-1)stack.splice(i,1);if(!fromPop){skipPop++;history.back()}}
-addEventListener('popstate',()=>{if(skipPop){skipPop--;return}const id=stack[stack.length-1];if(id==='#al-page'||id==='#pl-page')stopPreview();if(id){if(id==='#ed-page'&&edDirty()&&!confirm('Discard this album?')){history.pushState({p:id},'');return}closePage(id,true)}});
+addEventListener('popstate',()=>{if(skipPop){skipPop--;return}const id=stack[stack.length-1];if(id==='#al-page'||id==='#pl-page')stopPreview();if(id==='#dg-page')DG.busy=false;if(id){if(id==='#ed-page'&&edDirty()&&!confirm('Discard this album?')){history.pushState({p:id},'');return}closePage(id,true)}});
 
 /* ---- sort page ---- */
 const TRI='<svg viewBox="0 0 40 40"><polygon points="10.4,11 29.6,11 20,27.6" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/></svg>';
@@ -1223,6 +1237,100 @@ $('#pl-back').onclick=()=>{stopPreview();closePage('#pl-page')};
 $('#pl-del').onclick=()=>{const pl=S.playlists.find(x=>x.id===plId);if(!pl||!confirm(`Delete the playlist “${pl.name}”? The tracks stay in your albums.`))return;
   stopPreview();S.playlists=S.playlists.filter(x=>x!==pl);save();closePage('#pl-page');render()};
 
+/* ================= discography: everything an artist has released, from MusicBrainz ================= */
+// only releases credited to this artist alone (no various-artists compilations, splits or "X & Y" collaborations),
+// oldest first. The artist is found by the MusicBrainz ID your looked-up albums carry; otherwise by name, asking
+// which one when several share it (and remembering the answer).
+let dgName=null;const DG={cache:{},sel:new Set(),busy:false,mbid:'',state:'',cands:[],err:'',gen:0};
+const dgUi=()=>S.ui.dg||(S.ui.dg={type:'All',studio:true});
+function setArMbid(name,id){const k=akey(name);S.artists[k]={...(S.artists[k]||{}),mbid:id};save()}
+function openDisco(name){dgName=name;DG.sel.clear();DG.mbid='';$('#dg-title').textContent=name;dgSegs();openPage('#dg-page');loadDisco(false)}
+async function loadDisco(ask){
+  const name=dgName,gen=++DG.gen;DG.state='loading';paintDisco();
+  try{
+    let id='';
+    if(!ask){id=(S.artists[akey(name)]||{}).mbid||'';if(!id){const own=S.albums.find(a=>akey(a.artist)===akey(name)&&a.arMbid);if(own)id=own.arMbid}}
+    if(!id){
+      const j=await mb(`artist/?query=${encodeURIComponent('artist:"'+name.replace(/"/g,'')+'"')}&limit=10`);if(gen!==DG.gen)return;
+      const L=(j.artists||[]).filter(a=>(a.score||0)>=50),exact=L.filter(a=>nameNorm(a.name)===nameNorm(name));
+      if(!ask&&exact.length===1&&exact[0].score>=90){id=exact[0].id;setArMbid(name,id)}
+      else{DG.state='pick';DG.cands=L;paintDisco();return}
+    }
+    DG.mbid=id;
+    if(!DG.cache[id]){let all=[],off=0,count=1;
+      while(off<count&&off<600){const j=await mb(`release-group?artist=${id}&inc=artist-credits&limit=100&offset=${off}`);if(gen!==DG.gen)return;
+        const r=j['release-groups']||[];all=all.concat(r);count=j['release-group-count']||0;off+=r.length;if(!r.length)break}
+      DG.cache[id]=all}
+    if(gen!==DG.gen)return;DG.state='ok';paintDisco();
+  }catch(e){if(gen!==DG.gen)return;DG.state='err';DG.err=e.message;paintDisco()}
+}
+function dgList(){
+  const id=DG.mbid,u=dgUi();
+  return (DG.cache[id]||[]).filter(g=>{const ac=g['artist-credit']||[];return ac.length===1&&ac[0].artist&&ac[0].artist.id===id})
+    .filter(g=>!u.studio||!(g['secondary-types']||[]).length)   // studio: no live, compilation, remix, demo, soundtrack…
+    .filter(g=>u.type==='All'||g['primary-type']===u.type)
+    .sort((a,b)=>String(a['first-release-date']||'9999').localeCompare(String(b['first-release-date']||'9999'))||a.title.localeCompare(b.title));
+}
+function dgSegs(){const u=dgUi();$$('#dg-type button').forEach(b=>b.classList.toggle('on',b.dataset.t===u.type));$$('#dg-kind button').forEach(b=>b.classList.toggle('on',(b.dataset.s==='1')===!!u.studio))}
+function dgSt(m,bad){const e=$('#dg-st');e.hidden=!m;e.innerHTML=m||'';e.classList.toggle('err',!!bad)}
+function dgBar(){const n=DG.sel.size;$('#dg-bar').hidden=!n&&!DG.busy;$('#dg-page').classList.toggle('has-bar',!!n||DG.busy);if(!DG.busy)$('#dg-addsel').textContent=`Add ${n} Selected`;$('#dg-addsel').disabled=DG.busy;$('#dg-clear').disabled=DG.busy}
+function paintDisco(){
+  if(!dgName)return;const res=$('#dg-res'),name=dgName;
+  if(DG.state==='loading'){dgSt(`<span class="spin"></span>&nbsp; Loading ${esc(name)}’s discography from MusicBrainz…`);res.innerHTML='';dgBar();return}
+  if(DG.state==='err'){dgSt(`Couldn’t reach MusicBrainz (${esc(DG.err)}). <button type="button" class="lk-retry" id="dg-retry">Try again</button>`,true);res.innerHTML='';return}
+  if(DG.state==='pick'){
+    dgSt(DG.cands.length?`Which <b>${esc(name)}</b> is it?`:`MusicBrainz has no artist called “${esc(name)}”.`,!DG.cands.length);
+    res.innerHTML=DG.cands.map(a=>{const life=a['life-span']||{},yrs=[(life.begin||'').slice(0,4),(life.end||'').slice(0,4)].filter(Boolean).join('–');
+      return `<button type="button" class="lk-row dg-art" data-id="${esc(a.id)}"><div class="art ph" style="--c:${clothOf('artist|'+a.name)}"><span>${esc(initials(a.name))}</span></div><span class="tx"><b>${esc(a.name)}</b><small>${esc([a.disambiguation,a.type,a.country,yrs].filter(Boolean).join(' · ')||'No details')}</small></span><span class="tg">Pick</span></button>`}).join('');
+    dgBar();return}
+  const list=dgList(),have=list.filter(g=>ownG(g)||hasEd(g)).length;
+  dgSt('');
+  res.innerHTML=`<div class="sr-sec">${list.length} release${list.length===1?'':'s'} · ${have} in your collection<span><button type="button" id="dg-wrong">Wrong artist?</button></span></div>`+
+    (list.length?list.map(g=>{const own=ownG(g),y=(g['first-release-date']||'').slice(0,4),sec=(g['secondary-types']||[]).join(', ');
+      return `<button type="button" class="lk-row ${DG.sel.has(g.id)?'sel':''}" data-g="${esc(g.id)}"><div class="art ph" style="--c:${clothOf(g.title+'|'+name)}"><span>${esc(initials(g.title))}</span>${DISC_SVG}<img alt="" loading="lazy" src="${caa(g.id)}" onerror="this.remove()"></div><span class="tx"><b>${esc(g.title)}</b><small>${esc([y||'No date',sec,!own&&hasEd(g)?'Have an edition':''].filter(Boolean).join(' · '))}</small></span><span class="tg">${esc(g['primary-type']||'Other')}</span>${own?CK_OWN:CK_BOX}</button>`}).join('')
+    :`<div class="lk-st">Nothing here${dgUi().type!=='All'?` among ${TYPE_PL[dgUi().type]}`:''}${dgUi().studio?' as studio releases — try Everything':''}.</div>`);
+  dgBar();
+}
+// one release: open Add Album filled in from it, with its Editions tab there too
+async function dgOpenAdd(g){
+  openEditor(null);
+  $('#lk-album').value=g.title;$('#lk-artist').value=dgName;
+  LK=[g];lkQ={q:'',browse:false,al:g.title,ar:dgName,count:1};lkOff=1;SEL.clear();EDSEL.clear();EDOPEN=null;updBar();renderLk();
+  setLkSt('<span class="spin"></span>&nbsp; Filling it in from MusicBrainz…');
+  try{await pickRG(g,null);setLkSt('')}catch(e){setLkSt(`Couldn’t load that one (${esc(e.message)}). Tap it below to try again.`,true)}
+}
+$('#dg-type').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||DG.busy)return;dgUi().type=b.dataset.t;save();dgSegs();paintDisco()});
+$('#dg-kind').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||DG.busy)return;dgUi().studio=b.dataset.s==='1';save();dgSegs();paintDisco()});
+$('#dg-body').addEventListener('click',e=>{
+  if(e.target.closest('#dg-retry')){loadDisco(false);return}
+  if(e.target.closest('#dg-wrong')){DG.sel.clear();loadDisco(true);return}
+  const pa=e.target.closest('.dg-art');if(pa){setArMbid(dgName,pa.dataset.id);loadDisco(false);return}
+  const r=e.target.closest('.lk-row[data-g]');if(!r||DG.busy)return;
+  const g=(DG.cache[DG.mbid]||[]).find(x=>x.id===r.dataset.g);if(!g)return;
+  const ck=e.target.closest('.lk-ck');
+  if(ck){if(ck.classList.contains('own'))return;DG.sel.has(g.id)?DG.sel.delete(g.id):DG.sel.add(g.id);r.classList.toggle('sel',DG.sel.has(g.id));dgBar();return}
+  dgOpenAdd(g);
+});
+$('#dg-clear').onclick=()=>{DG.sel.clear();paintDisco()};
+$('#dg-addsel').onclick=async()=>{
+  const picks=(DG.cache[DG.mbid]||[]).filter(g=>DG.sel.has(g.id));if(!picks.length||DG.busy)return;
+  DG.busy=true;dgBar();let ok=0,fail=0;
+  for(const [n,g] of picks.entries()){
+    $('#dg-addsel').innerHTML=`<span class="spin"></span>&nbsp; Adding ${n+1} of ${picks.length}…`;
+    const row=$(`#dg-res .lk-row[data-g="${CSS.escape(g.id)}"]`);
+    try{
+      if(ownG(g)){DG.sel.delete(g.id);continue}
+      const x=await fetchAlbum(g,null),artist=x.artist||dgName;
+      S.albums.push({id:uid(),added:Date.now(),...x,artist,genre:normGenres(x.genre)});
+      DG.sel.delete(g.id);ok++;save();autoPhoto(artist);const id=S.albums[S.albums.length-1].id;checkPreviews(id);autoCover(id);
+      if(row){row.classList.remove('sel');row.classList.add('ok')}
+    }catch(e){fail++;if(row)row.classList.add('fail')}
+  }
+  DG.busy=false;render();if(stack.includes('#ar-page'))renderArtist();
+  toast(fail?`Added ${ok}. ${fail} couldn’t be loaded and are still checked.`:`Added ${ok} release${ok===1?'':'s'}`);
+};
+$('#dg-back').onclick=()=>{if(!DG.busy)closePage('#dg-page')};
+
 /* ---- artist window ---- */
 let arName=null,arRen=false;
 function openArtist(name){arName=name;arRen=false;renderArtist();openPage('#ar-page')}
@@ -1238,9 +1346,10 @@ function renderArtist(){
     <div class="lk-st" id="ph-st" hidden></div><div class="sr-list" id="ph-res"></div>`;
   h+=arRen?`<div class="tg-new"><div class="fc"><label for="ar-new">Artist name</label><input id="ar-new" autocomplete="off" value="${esc(x.name)}" enterkeyhint="done"></div><button type="button" class="card-btn ink" id="ar-save">Save</button></div><div class="note">Renames the artist on all ${list.length} of their releases. Use a name you already have to merge them.</div>`:'';
   h+=`<div class="stats three"><div><b>${list.length}</b><small>Releases</small></div><div><b>${len?fmtLong(len):'—'}</b><small>Of Music</small></div><div><b>${ys.length?(Math.min(...ys)===Math.max(...ys)?Math.min(...ys):Math.min(...ys)+'–'+String(Math.max(...ys)).slice(-2)):'—'}</b><small>Years</small></div></div>`;
+  h+=`<button type="button" class="card-btn ink" id="ar-disco">Discography</button>`;
   let last=null;
   for(const a of list){if(a.type!==last){h+=`<div class="list-divider"><span>${TYPE_PL[a.type]}</span></div>`;last=a.type}h+=albRow(a,null,true)}
-  $('#ar-body').innerHTML=h;
+  $('#ar-body').innerHTML=h;$('#ar-disco').onclick=()=>openDisco(arName);
   $('#ph-find').onclick=findPhotos;$('#ph-pick').onclick=()=>$('#ar-file').click();
   $('#ph-none').onclick=()=>{const k=akey(arName);S.artists[k]={...(S.artists[k]||{}),photo:'',src:'',none:true};save();renderArtist();render()};
   if(arRen){const i=$('#ar-new');i.focus();i.onkeydown=e=>{if(e.key==='Enter')renameArtist()};$('#ar-save').onclick=renameArtist}
